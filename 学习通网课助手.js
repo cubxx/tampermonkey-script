@@ -17,7 +17,7 @@
             v=document.getElementById('video_html5_api');
             if(v){
                 //播放
-                v.play();
+                //v.play();
                 //拉取进度条
                 var time=document.getElementsByClassName('vjs-duration-display')[0].innerHTML.split(':');
                 if(time[0]!='0'){ begin=time[0]*60+parseInt(time[1])-30; }
@@ -25,7 +25,7 @@
             //静音
             var vol=document.getElementsByClassName('vjs-mute-control vjs-control vjs-button vjs-vol-3')[0]; if(vol) vol.click();
             //暂停
-            v.pause = null;
+            //v.pause = null;
             //解锁进度条 index
             let seekbar = videojs.getComponent("SeekBar");
             seekbar.prototype.handleMouseDown = function(c){
@@ -36,16 +36,19 @@
                 seekbar.prototype.__proto__.handleMouseUp .call(this,c);}
             videojs("video").off("seeked");
 
-            if(!v.pause&&v){ clearInterval(stop);}
-        },1000);
+            if(!v.pause&&v&&seekbar){
+                clearInterval(stop);
+                window.v=v;
+            }
+        },2000);
 
-        setInterval(()=>{
+        /*setInterval(()=>{
             if(begin==v.currentTime) v.play();
             v.playbackRate=16; //倍数
-            if(n%200==0) v.currentTime+=5; //进度条
+            if(n%500==0) v.currentTime+=5; //进度条
             n++;
-        },1)
-    } //*/
+        },1) //*/
+    }
 
     if(document.URL.includes('ztnodedetailcontroller')){
         var li=document.getElementsByClassName('wh wh');
