@@ -21,9 +21,9 @@
             }
             //lis[c].children[0].click();
             setInterval(()=>{ //自动向下
-                var last=parseInt(sessionStorage.getItem('last'));
+                var duration=parseInt(sessionStorage.getItem('dur'));
                 var time=parseInt(sessionStorage.getItem('time'));
-                if((last && time>=last) || lis[c].childElementCount==1){
+                if((duration && time>=duration) || lis[c].childElementCount==1){
                     //if(c<lis.length && lis[c].childElementCount!=3){
                     c++;
                     if(lis[c].childElementCount==1) c++;
@@ -36,22 +36,20 @@
 
     //控制播放
     if(document.URL.includes('ananas/modules/video/index.html?v=')){
+        window.onerror=()=>{return true} //隐藏报错
         var v;
-        var last=0,n=0;
+        var duration=0,n=0;
         var stop=setInterval(()=>{
             v=document.getElementById('video_html5_api');
             //拉取进度条
             var time=document.getElementsByClassName('vjs-duration-display')[0].innerHTML.split(':');
             if(time[0]!='0'){
-                last=time[0]*60+parseInt(time[1]);
-                sessionStorage.setItem('last',last);
-                //v.currentTime=last-10;
+                duration=time[0]*60+parseInt(time[1]);
+                sessionStorage.setItem('dur',duration);
+                //v.currentTime=duration-10;
             }
             //静音
-            //var vol=document.getElementsByClassName('vjs-mute-control vjs-control vjs-button vjs-vol-3')[0]; if(vol) vol.click();
             v.volume=0;
-            //暂停
-            //v.pause = null;
             //解锁进度条
             let seekbar = videojs.getComponent("SeekBar");
             seekbar.prototype.handleMouseDown = function(c){
@@ -68,7 +66,7 @@
             //播放
             v.play();
 
-            if(last&&v&&seekbar){
+            if(duration&&v&&seekbar){
                 clearInterval(stop);
                 window.v=v;
             }
@@ -76,7 +74,7 @@
         //倍数控制
         setInterval(()=>{
             sessionStorage.setItem('time',v.currentTime);
-            if(last&&last-10<=v.currentTime){
+            if(duration&&duration-10<=v.currentTime){
                 v.playbackRate=1;
             }else{ v.playbackRate=4;}
         },2000)
