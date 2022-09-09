@@ -42,12 +42,9 @@
         var stop=setInterval(()=>{
             v=document.getElementById('video_html5_api');
             //拉取进度条
-            var time=document.getElementsByClassName('vjs-duration-display')[0].innerHTML.split(':');
-            if(time[0]!='0'){
-                duration=time[0]*60+parseInt(time[1]);
-                sessionStorage.setItem('dur',duration);
-                //v.currentTime=duration-10;
-            }
+            duration=v.duration;
+            sessionStorage.setItem('dur',duration);
+            //v.currentTime=duration-10;
             //静音
             v.volume=0;
             //解锁进度条
@@ -66,7 +63,7 @@
             //播放
             v.play();
 
-            if(duration&&v&&seekbar){
+            if(v && seekbar && !isNaN(duration)){
                 clearInterval(stop);
                 window.v=v;
             }
