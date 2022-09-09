@@ -5,7 +5,7 @@
 // @description  try to take over the world!
 // @author       Cubxx
 // @match      https://mooc1.chaoxing.com/*
-// @icon         https://mooc1.chaoxing.com/favicon.ico
+// @icon         https://mooc.chaoxing.com/favicon.ico
 // @grant        none
 // ==/UserScript==
 
@@ -13,17 +13,24 @@
     //自动下一节
     if(document.URL.includes('mycourse/studentstudy?')){
         window.onload=()=>{
-            var lis=document.getElementsByClassName('catalog_points_yi prevTips');
+            var lis=document.getElementsByClassName('posCatalog_select'); //右侧菜单所有元素
             var c=lis.length;
-            for(var i=0;i<lis.length;i++){ //获取第一个未完成任务点
-                if(lis[i].innerText=='2'){ c=i-1; break;}
+            for(var i=0;i<lis.length;i++){
+                //if(lis[i].childElementCount==3 && lis[i].children[1].value=='1'){ c=i; break;} //获取第一个未完成任务点
+                if(lis[i].className.includes('posCatalog_active')){ c=i; break;} //获取当前选中任务点
             }
+            //lis[c].children[0].click();
             setInterval(()=>{ //自动向下
-                if(c<lis.length&&lis[c].innerText=='1'){
+                var last=parseInt(sessionStorage.getItem('last'));
+                var time=parseInt(sessionStorage.getItem('time'));
+                if((last && time>=last) || lis[c].childElementCount==1){
+                    //if(c<lis.length && lis[c].childElementCount!=3){
                     c++;
-                    lis[c].parentElement.children[0].click();
+                    if(lis[c].childElementCount==1) c++;
+                    lis[c].children[0].click();
+                    sessionStorage.setItem('time',0);
                 }
-            },1000);
+            },5*1000); //每5s检查一次
         }
     }
 
@@ -37,6 +44,7 @@
             var time=document.getElementsByClassName('vjs-duration-display')[0].innerHTML.split(':');
             if(time[0]!='0'){
                 last=time[0]*60+parseInt(time[1]);
+                sessionStorage.setItem('last',last);
                 //v.currentTime=last-10;
             }
             //静音
@@ -44,7 +52,7 @@
             v.volume=0;
             //暂停
             //v.pause = null;
-            //解锁进度条 index
+            //解锁进度条
             let seekbar = videojs.getComponent("SeekBar");
             seekbar.prototype.handleMouseDown = function(c){
                 seekbar.prototype.__proto__.handleMouseDown.call(this,c);}
@@ -67,11 +75,12 @@
         },2000);
         //倍数控制
         setInterval(()=>{
+            sessionStorage.setItem('time',v.currentTime);
             if(last&&last-10<=v.currentTime){
                 v.playbackRate=1;
-            }else{ v.playbackRate=8;}
-        },1000) //*/
-    }
+            }else{ v.playbackRate=4;}
+        },2000)
+    } //*/
 
     //模拟阅读
     if(document.URL.includes('ztnodedetailcontroller')){
