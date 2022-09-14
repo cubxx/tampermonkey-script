@@ -10,6 +10,7 @@
 // ==/UserScript==
 
 (function(){
+    'use strict';
     //健康之路自动填写
     if(document.URL=='https://yqfk.shnu.edu.cn/Default.aspx'){
         document.getElementById('lnkReport').click();
@@ -18,13 +19,15 @@
         (function(){
             var AutoSubmit=function() {
                 document.getElementById('p1_ChengNuo-inputEl').click(); //我承诺阿巴阿巴
+                //document.getElementById('fineui_5').children[1]; //随申码
+                //document.getElementById('fineui_6').children[1]; //行程卡
                 document.getElementById('fineui_9-inputEl').click(); //在上海校内
                 document.getElementById('fineui_12-inputEl').click(); //住校
                 document.getElementById('fineui_15-inputEl').click(); //不是家庭住址
                 document.getElementById('fineui_18-inputEl').click(); //否
                 document.getElementById('fineui_20-inputEl').click(); //否
                 document.getElementById('fineui_22-inputEl').click(); //否
-                document.getElementById('p1_ctl01_btnSubmit').onclick=()=>{document.getElementById('fineui_37').click();}; //直接提交
+                document.getElementById('p1_ctl01_btnSubmit').onclick=()=>{document.getElementById('fineui_37').click(); } //直接提交
                 document.getElementById('p1_ctl01_btnSubmit').click(); //自动提交
             };
             window.onload=AutoSubmit;
@@ -62,7 +65,7 @@
                     if(url=='https://course.shnu.edu.cn/eams/home.action') td.children[6].children[0].click();
                     else{clearInterval(stop);}
                 }
-            },200);
+            },300); //每300ms执行一次
         })();
     }
 

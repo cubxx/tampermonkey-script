@@ -21,7 +21,7 @@ http://shnu.fy.chaoxing.com/portal 默认为cas登录
 https://cas.shnu.edu.cn/cas/login?service=* 根据历史用户密码自动登录  
 **教务系统定位至课表**：  
 打开 https://course.shnu.edu.cn/eams/home.action 直接转到课表  
-如果网页显示操作过快，可以修改65行的数字`200`，`200`表示每200ms跳转至课表一次
+如果网页显示操作过快，可以修改65行的数字`300`  
 
 ## [学习通网课助手.js](学习通网课助手.js)
 **刷网课**  
