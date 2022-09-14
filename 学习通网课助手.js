@@ -16,14 +16,14 @@
             var lis=document.getElementsByClassName('posCatalog_select'); //右侧菜单所有元素
             var c=lis.length;
             for(var i=0;i<lis.length;i++){
-                //if(lis[i].childElementCount==3 && lis[i].children[1].value=='1'){ c=i; break;} //获取第一个未完成任务点
-                if(lis[i].className.includes('posCatalog_active')){ c=i; break;} //获取当前选中任务点
+                if(lis[i].childElementCount==3 && lis[i].children[1].value=='1'){ c=i; break;} //获取第一个未完成任务点
+                //if(lis[i].className.includes('posCatalog_active')){ c=i; break;} //获取当前选中任务点
             }
-            //lis[c].children[0].click();
+            lis[c].children[0].click();
             setInterval(()=>{ //自动向下
                 var duration=parseInt(sessionStorage.getItem('dur'));
                 var time=parseInt(sessionStorage.getItem('time'));
-                if((duration && time>=duration) || lis[c].childElementCount==1){
+                if((duration && time>=duration) || lis[c].childElementCount!=3){
                     //if(c<lis.length && lis[c].childElementCount!=3){
                     c++;
                     if(lis[c].childElementCount==1) c++;
@@ -41,6 +41,8 @@
         var duration=0,n=0;
         var stop=setInterval(()=>{
             v=document.getElementById('video_html5_api');
+            //播放
+            v.play();
             //拉取进度条
             duration=v.duration;
             sessionStorage.setItem('dur',duration);
@@ -59,9 +61,7 @@
             //解锁鼠标
             Ext.apply=null;
             //解锁倍数
-            videojs("video").playbackRate=null;
-            //播放
-            v.play();
+            videojs("video").playbackRate=function(){};
 
             if(v && seekbar && !isNaN(duration)){
                 clearInterval(stop);
@@ -71,10 +71,10 @@
         //倍数控制
         setInterval(()=>{
             sessionStorage.setItem('time',v.currentTime);
-            if(duration&&duration-10<=v.currentTime){
+            /*if(duration&&duration-10<=v.currentTime){
                 v.playbackRate=1;
-            }else{ v.playbackRate=4;}
-        },2000)
+            }else{ v.playbackRate=4;}*/
+        },5*1000)
     } //*/
 
     //模拟阅读
