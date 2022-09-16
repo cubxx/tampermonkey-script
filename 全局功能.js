@@ -10,52 +10,52 @@
 // @grant        none
 // ==/UserScript==
 
-(function(){
-    var global=document.createElement('div');
-    global.id='全局功能组';
+(function () {
+    var global = document.createElement('div');
+    global.id = '全局功能组';
 
     //设计模式
-    (function() {
-        var 设计开关=true;
-        var btn=document.createElement('input');
-        btn.id='设计模式';
-        btn.type='button';
-        btn.onclick=function(){
-            if(设计开关){
+    (function () {
+        var 设计开关 = true;
+        var btn = document.createElement('input');
+        btn.id = '设计模式';
+        btn.type = 'button';
+        btn.onclick = function () {
+            if (设计开关) {
                 document.designMode = 'on';
-                btn.value='设计模式-开';
-                btn.style.color='#fff';
-                btn.style.backgroundColor='#000';
-            }else{
+                btn.value = '设计模式-开';
+                btn.style.color = '#fff';
+                btn.style.backgroundColor = '#000';
+            } else {
                 document.designMode = 'off';
-                btn.value='设计模式-关';
-                btn.style.color='#000';
-                btn.style.backgroundColor='#ffffff00';
+                btn.value = '设计模式-关';
+                btn.style.color = '#000';
+                btn.style.backgroundColor = '#ffffff00';
             }
-            设计开关=!设计开关;
+            设计开关 = !设计开关;
         };
-        btn.onmouseout=function(){btn.style.opacity=0.05; btn.style.left='-100px'; };
-        btn.onmousemove=function(){btn.style.opacity=1; btn.style.left='0px'; };
-        btn.style='position: fixed;	\
+        btn.onmouseout = function () { btn.style.opacity = 0.05; btn.style.left = '-100px'; };
+        btn.onmousemove = function () { btn.style.opacity = 1; btn.style.left = '0px'; };
+        btn.style = 'position: fixed;	\
 bottom: 50px;	left: -100px;	\
 z-index: 9999;	border: 0;  \
 width: 120px;	height: 40px;	\
 color: #000;	background-color:#ffffff00;  \
 font: bold 17px/20px caption;';
-        btn.style.opacity=0.1;
-        btn.value='设计模式-关';
-        setInterval(function(){
-            if(!document.body.contains(btn)){ global.appendChild(btn); }
-        },1000);
+        btn.style.opacity = 0.1;
+        btn.value = '设计模式-关';
+        setInterval(function () {
+            if (!document.body.contains(btn)) { global.appendChild(btn); }
+        }, 1000);
     })();
 
     //广告删除
-    (function(){
-        var loop_num=0,stop_num=0 ;
-        function classArray(classname){ return document.getElementsByClassName(classname) }
-        var stop=setInterval(function(){
-            var loop_valid=false;
-            var ads=[
+    (function () {
+        var loop_num = 0, stop_num = 0;
+        function classArray(classname) { return document.getElementsByClassName(classname) }
+        var stop = setInterval(function () {
+            var loop_valid = false;
+            var ads = [
                 ...classArray('adsbygoogle'), //google
                 ...classArray('b_ad'), //bing-搜索
                 //...classArray('Pc-card Card'), //zhihu-首页
@@ -64,15 +64,16 @@ font: bold 17px/20px caption;';
                 //...classArray(''), //
                 ...classArray('') //
             ];
-            for(var ad of ads){
-                if(ad.style.display!='none'){
+            for (var ad of ads) {
+                if (ad.style.display != 'none') {
                     //ad.style.display='none';
                     ad.remove();
-                    loop_valid=true;}
+                    loop_valid = true;
+                }
             }
-            if(loop_valid) loop_num++;
-            if(loop_num>=stop_num){ clearInterval(stop); }
-        },100);
+            if (loop_valid) loop_num++;
+            if (loop_num >= stop_num) { clearInterval(stop); }
+        }, 100);
     })();
 
     //邮箱发送
@@ -91,8 +92,10 @@ font: bold 17px/20px caption;';
 */
 
     //选择复制
-    document.onkeydown=function(e){ //Ctrl+C
-        if(e.ctrlKey && e.keyCode===67 && window.getSelection().toString()) document.execCommand('copy');
+    let _onkeydown = document.onkeydown || function () { };
+    document.onkeydown = function (e) { //Ctrl+C
+        if (e.ctrlKey && e.keyCode === 67 && window.getSelection().toString()) document.execCommand('copy');
+        _onkeydown(e);
     }
 
     document.body.appendChild(global);
