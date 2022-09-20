@@ -14,10 +14,9 @@
     var global = document.createElement('div');
     global.id = '全局功能组';
 
-    //设计模式
-    (function () {
-        var 设计开关 = true;
-        var btn = document.createElement('input');
+    { //设计模式
+        let 设计开关 = true;
+        let btn = document.createElement('input');
         btn.id = '设计模式';
         btn.type = 'button';
         btn.onclick = function () {
@@ -30,27 +29,38 @@
                 document.designMode = 'off';
                 btn.value = '设计模式-关';
                 btn.style.color = '#000';
-                btn.style.backgroundColor = '#ffffff00';
+                btn.style.backgroundColor = '#fff0';
             }
             设计开关 = !设计开关;
         };
-        btn.onmouseout = function () { btn.style.opacity = 0.05; btn.style.left = '-100px'; };
-        btn.onmousemove = function () { btn.style.opacity = 1; btn.style.left = '0px'; };
-        btn.style = 'position: fixed;	\
-bottom: 50px;	left: -100px;	\
-z-index: 9999;	border: 0;  \
-width: 120px;	height: 40px;	\
-color: #000;	background-color:#ffffff00;  \
-font: bold 17px/20px caption;';
-        btn.style.opacity = 0.1;
+        btn.style = 'position:fixed;z-index:9999;border:1px solid #000;width:120px;height:40px;color:#000;background-color:#fff0;font:bold 17px/20px caption;';
+        btn.style.top = '0px', btn.style.left = '-110px';
         btn.value = '设计模式-关';
         setInterval(function () {
             if (!document.body.contains(btn)) { global.appendChild(btn); }
         }, 1000);
-    })();
+        let _mmove = document.onmousemove || function () { }
+        btn.onmousedown = function (e) {
+            var ex = e.clientX, ey = e.clientY,
+                px = parseFloat(window.getComputedStyle(btn).left),
+                py = parseFloat(window.getComputedStyle(btn).top);
+            var dx = px - ex, dy = py - ey;
+            document.onmousemove = function (e) {
+                var ex = e.clientX, ey = e.clientY;
+                btn.style.left = dx + ex + 'px';
+                btn.style.top = dy + ey + 'px';
+                设计开关 = false;
+                _mmove(e);
+            }
+            btn.onmouseup = function () {
+                document.onmousemove = _mmove;
+                if (parseFloat(btn.style.left) < 0) btn.style.left = '-110px';
+                if (parseFloat(btn.style.top) < 0) btn.style.top = '0px';
+            }
+        }
+    }
 
-    //广告删除
-    (function () {
+    { //广告删除
         var loop_num = 0, stop_num = 0;
         function classArray(classname) { return document.getElementsByClassName(classname) }
         var stop = setInterval(function () {
@@ -74,10 +84,9 @@ font: bold 17px/20px caption;';
             if (loop_valid) loop_num++;
             if (loop_num >= stop_num) { clearInterval(stop); }
         }, 100);
-    })();
+    }
 
-    //邮箱发送
-    /*(function(){
+    /*{ //邮箱发送
         var btn=document.createElement('input');
         btn.id='邮箱发送';
         btn.type='button';
@@ -88,15 +97,30 @@ font: bold 17px/20px caption;';
         setInterval(function(){
             if(document.body.contains(btn)){ global.appendChild(btn); }
         },1000);
-    })();
-*/
+    }    */
 
     //选择复制
     let _onkeydown = document.onkeydown || function () { };
     document.onkeydown = function (e) { //Ctrl+C
-        if (e.ctrlKey && e.keyCode === 67 && window.getSelection().toString()) document.execCommand('copy');
+        (e.ctrlKey && e.keyCode === 67 && window.getSelection().toString()) && document.execCommand('copy');
         _onkeydown(e);
     }
 
     document.body.appendChild(global);
+
+    //超职教育
+    if (document.URL.includes('open.talk-fun.com/player.php')) {
+        window.onload = function () {
+            let stop = setInterval(() => {
+                let intro = document.getElementsByClassName('teaser-container')[0]
+                intro && (
+                    clearInterval(stop),
+                    intro.style.display = 'none',
+                    MT.pause = () => { },
+                    Mt.play(),
+                    document.getElementsByClassName('player_speed_type')[0].children[5].click()
+                );
+            }, 1000);
+        }
+    }
 })();
