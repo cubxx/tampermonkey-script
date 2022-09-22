@@ -13,6 +13,7 @@
 
 (function () {
     let _mmove = document.onmousemove || function () { };
+    let hidd_left = -90;
     let elm = {
         style: 'border:none;width:auto;height:35px;color:#000;background-color:#fff0;font:bold 17px/20px caption;',
         onmousedown: function (e) {
@@ -29,7 +30,7 @@
             }
             this.onmouseup = function () {
                 document.onmousemove = _mmove;
-                if (parseFloat(this.style.left) < 0) this.style.left = '-90px';
+                if (parseFloat(this.style.left) < 0) this.style.left = hidd_left + 'px';
                 if (parseFloat(this.style.top) < 0) this.style.top = '0px';
             }
         },
@@ -40,7 +41,7 @@
     }
     var global = document.createElement('div');
     global.id = '全局功能组';
-    global.style = 'display:flex;flex-direction:column;position:fixed;top:0;left:-90px;z-index:9999;width:100px;border:3px solid #000;border-radius:10px';
+    global.style = 'display:flex;flex-direction:column;position:fixed;top:0;left:' + hidd_left + 'px;z-index:9999;width:100px;border:3px solid #000;border-radius:10px';
     global.onmousedown = elm.onmousedown;
 
     { //设计模式
@@ -116,6 +117,12 @@
     document.body.appendChild(global);
 
     //超职教育
+    if (document.URL.includes('www.chaozhiedu.com/pc/#/')) {
+        let stop = setInterval(() => {
+            let con = document.getElementsByClassName('course-list')[0];
+            con && (con.style.cssText = 'height:auto!important', clearInterval(stop))
+        }, 500)
+    }
     if (document.URL.includes('open.talk-fun.com/player.php')) {
         window.onload = function () {
             let stop = setInterval(() => {
