@@ -4,7 +4,7 @@
 // @version      0.1
 // @description  输入正确的vid后自动打开投稿界面
 // @author       Cubxx
-// @include        /^https\:\/\/www\.mfuns\.[a-zA-Z]*\/$/
+// @include      /^https\:\/\/www\.mfuns\.[a-zA-Z]*\/$/
 // @require
 // @icon         https://m.kms233.com/static/icon/icon.png
 // @grant        none
@@ -13,7 +13,7 @@
 window.onload = function () {
     //自动签到
     var sign=document.getElementsByClassName('sign opacity')[0];
-    if(sign.className=='sign opacity'){ sign.click(); document.getElementsByClassName('layui-layer-ico layui-layer-close layui-layer-close2')[0].click(); }
+    if(sign && sign.className=='sign opacity'){ sign.click(); document.getElementsByClassName('layui-layer-ico layui-layer-close layui-layer-close2')[0].click(); }
     //删除右下角气泡
     var del = setInterval(function () {
         var elm = document.getElementById('jinsom-plugin-barrage');
@@ -22,7 +22,7 @@ window.onload = function () {
 
     var inp = document.createElement('input'); //输入框
     inp.id = 'inpbv'; inp.placeholder = '  输入av/BV号...'; inp.maxLength = '12';
-    inp.onclick = () => { inp.style.opacity = inp.style.opacity == 0 ? 0.5 : 0; btn.style.opacity = btn.style.opacity == 0 ? 0.5 : 0; };
+    inp.oncontextmenu = () => { inp.style.opacity = inp.style.opacity == 0 ? 0.5 : 0; btn.style.opacity = btn.style.opacity == 0 ? 0.5 : 0; };
     inp.style = 'position:fixed; top:0; left:0; width:110px; height:20px; border:none; padding-bottom:40px; z-index:9999; background-color:#0000; opacity:0.5;';
     document.body.appendChild(inp);
     var btn = document.createElement('input'); //提交
