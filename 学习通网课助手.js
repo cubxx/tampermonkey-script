@@ -4,7 +4,7 @@
 // @version      0.1
 // @description  I'm lazy dog
 // @author       Cubxx
-// @match      https://mooc1.chaoxing.com/*
+// @match      https://*.chaoxing.com/*
 // @icon         https://mooc.chaoxing.com/favicon.ico
 // @grant        none
 // ==/UserScript==
@@ -98,4 +98,42 @@
         }, 1000);
     }
 
+    //直播回放
+    if (document.URL.includes('zhibo.chaoxing.com') && !document.URL.includes('iframe')) {
+        alert('脚本加载完成');
+        let n = 0;
+        setInterval(() => {
+            $.ajax({ //直播2
+                url: "https://zhibo.chaoxing.com/saveTimePc",
+                type: "get",
+                data: {
+                    "streamName": 'LIVENEW2B7266W1vdoid14590138181722',
+                    "vdoid": 'vdoid14590138181722',
+                    "userId": userId,
+                    "isStart": 1,
+                    "t": new Date().getTime(),
+                    "courseId": courseId
+                },
+                success: function (data) { }
+            });
+            $.ajax({ //直播1
+                url: "https://zhibo.chaoxing.com/saveTimePc",
+                type: "get",
+                data: {
+                    "streamName": 'LIVENEW12n520oOvdoid14590128F3P5Q5',
+                    "vdoid": 'vdoid14590128F3P5Q5',
+                    "userId": userId,
+                    "isStart": 1,
+                    "t": new Date().getTime(),
+                    "courseId": courseId
+                },
+                success: function (data) { }
+            });
+            n++;
+            if (n % 2 == 0) {
+                console.clear();
+                console.log('已观看 ' + n / 2 + ' 分钟');
+            }
+        }, 30 * 1000);
+    }//*/
 })();

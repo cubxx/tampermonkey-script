@@ -27,18 +27,23 @@
                 'banner-card', //bilibili-横向广告-老版
                 'gg-floor-module', //bilibili-番剧
                 'activity-banner', //bilibili-活动
-                '', //bilibili-
+                'bili-dyn-ads', //bilibili-动态广告
+				'reply-notice', //bilibili-通知
+				'', //bilibili-
             ]);/*
             if (/[https\:\/\/www\.bilibili\.com]{24,25}/.test(url)) stop_num = 1; //首页
             if (url.includes('member.bilibili.com/york')) stop_num = 1; //投稿视频界面
             if (url.includes('bilibili.com/video')) stop_num = 2; //视频页删除多次*/
             for (var ad of ads) {
-                ad.style.display != 'none' && (loop_valid = true, ad.remove())
+                ad.style.display != 'none' && (loop_valid = true, ad.style.display='none')
             }
             // loop_valid && (loop_num++, console.log('隐藏一次'));
-            ads.length == 0 && clearInterval(stop);
-        }, 500);
+            if (url.includes('bilibili.com/video')) ads.length == 0 && clearInterval(stop);
+			else clearInterval(stop);
+        }, 1000);
     }
+	window.onload = main;
+	//main();
     var url = document.URL;
     url = url.slice(0, url.indexOf('?')); //url除参
     if (url.includes('bilibili.com/video')) { //bilivideo页面内跳转时，使用节点监听
@@ -48,5 +53,5 @@
             if (node) clearInterval(stop), Mobs.observe(node, { childList: true, subtree: true });
             else node = document.getElementsByClassName('bpx-player-loading-panel')[0];
         }, 100);
-    } else main();
+    }
 })();

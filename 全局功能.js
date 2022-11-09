@@ -17,7 +17,7 @@
         let _mmove = document.onmousemove || function () { };
         let hidd_left = -95;
         let elm = {
-            style: 'border:none;width:auto;height:35px;color:#000;background-color:#fff0;font:bold 17px/20px caption;',
+            style: 'padding:0;border:none;width:auto;height:35px;color:#fff;background-color:#fff0;font:bold 17px/20px caption;',
             onmousedown: function (e) {
                 let _this = this;
                 var ex = e.clientX, ey = e.clientY,
@@ -38,18 +38,19 @@
             },
             onclick: function (obj, on_off, func1, func2 = () => { }) {
                 if (on_off) func1(), obj.style.backgroundColor = '#fff0';
-                else func2(), obj.style.backgroundColor = '#0003';
+                else func2(), obj.style.backgroundColor = '#fff5';
             }
         }
         let find_frame = function (doc, func) { //不能解决iframe跨域问题
-            if (doc === null) { console.log('doc参数不为null'); return false; }
+            if (doc === null) { console.log('this.contentDocument == null'); return false; }
             function get_frame() { return [...doc.getElementsByTagName('iframe'), ...doc.getElementsByTagName('frame')] }
             func();
             for (let f of get_frame()) { find_frame(f.contentDocument, func) }
         }
         var global = document.createElement('div');
         global.id = '全局功能组';
-        global.style = 'display:flex;flex-direction:column;position:fixed;top:0;left:' + hidd_left + 'px;z-index:9999;width:100px;border:3px solid #000;border-radius:10px';
+        global.style = 'display:flex;flex-direction:column;position:fixed;top:0;\
+		left:' + hidd_left + 'px;z-index:9999;width:100px;background-color:#0000;mix-blend-mode:difference;border:3px solid #fff;border-radius:10px;margin:0px';
         global.onmousedown = elm.onmousedown;
 
         { //设计模式
@@ -69,7 +70,7 @@
                         设计开关 = !设计开关)
                 }
             }
-            setInterval(function () { !document.body.contains(btn) && global.appendChild(btn) }, 1000);
+            setInterval(function () { !document.contains(btn) && global.appendChild(btn) }, 1000); //
         }
 
         { //邮箱发送
@@ -85,31 +86,37 @@
                     !ismove && elm.onclick(this, 1, () => {
                         let str = window.getSelection().toString();
                         if (str && /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/.test(str)) window.open('mailto:' + str);
-                        else alert('邮箱格式错误');
+                        else alert('邮箱格式错误\n' + (str || '空'));
                     })
                 }
             }
-            setInterval(function () { !document.body.contains(btn) && global.appendChild(btn) }, 1000);
+            setInterval(function () { !document.contains(btn) && global.appendChild(btn) }, 1000); //
         }
         document.body.appendChild(global);
-    }
+    } //*/
 
-    { //广告删除
-        var loop_num = 0, stop_num = 0;
+    const _onload = window.onload;
+    window.onload = (...e) => { //广告删除
+        _onload && _onload(e);
         function classArray(classname) { return document.getElementsByClassName(classname) }
-        var stop = setInterval(function () {
-            var loop_valid = false;
-            var ads = [
+        let loop_num = 0, stop_num = 0;
+        let stop = setInterval(function () {
+            let loop_valid = false;
+            let ads = [
                 ...classArray('adsbygoogle'), //google
+                ...classArray('pb-ad'), //google
+                ...classArray('google-auto-placed'), //google
                 ...classArray('b_ad'), //bing-搜索
                 //...classArray('Pc-card Card'), //zhihu-首页
                 //...classArray('_2z1q32z'), //baidu-搜索
                 //...classArray(''), //
                 //...classArray(''), //
-                ...classArray('') //
+                ...classArray(''), //
+                document.getElementById('player-ads'), //ytb-ads
+                document.getElementById('masthead-ad') //ytb-ads
             ];
-            for (var ad of ads) {
-                if (ad.style.display != 'none') {
+            for (let ad of ads) {
+                if (ad && ad.style.display != 'none') {
                     //ad.style.display='none';
                     ad.remove();
                     loop_valid = true;
@@ -118,34 +125,33 @@
             if (loop_valid) loop_num++;
             if (loop_num >= stop_num) { clearInterval(stop); }
         }, 100);
-    }
+    } //*/
 
     //选择复制
-    let _onkeydown = document.onkeydown || function () { };
+    const _onkeydown = document.onkeydown;
     document.onkeydown = function (e) { //Ctrl+C
-        (e.ctrlKey && e.keyCode === 67 && window.getSelection().toString()) && document.execCommand('copy');
-        _onkeydown(e);
+        if (e.ctrlKey && e.keyCode === 67) {
+            let content = window.getSelection().toString();
+            content && navigator.clipboard.writeText(content);
+        }
+        _onkeydown && _onkeydown(e);
     }
 
-    //超职教育
-    if (document.URL.includes('www.chaozhiedu.com/pc/#/')) {
-        let stop = setInterval(() => {
-            let con = document.getElementsByClassName('course-list')[0];
-            con && (con.style.cssText = 'height:auto!important', clearInterval(stop))
-        }, 500)
+    //直接跳转
+    if (document.URL.includes('link.zhihu.com') ||
+        document.URL.includes('link.csdn.net') ||
+        document.URL.includes('c.pc.qq.com')) {
+        setTimeout(() => {
+            document.URL.includes('link.zhihu.com') && (location.href = document.getElementsByClassName('link')[0].innerHTML); //知乎
+            document.URL.includes('link.csdn.net') && document.getElementsByClassName('loading-btn')[0].click(); //CSDN
+            document.URL.includes('c.pc.qq.com') && (location.href = document.getElementById('url').innerText); //QQ
+        }, 100);
     }
-    if (document.URL.includes('open.talk-fun.com/player.php')) {
-        window.onload = function () {
-            let stop = setInterval(() => {
-                let intro = document.getElementsByClassName('teaser-container')[0]
-                intro && (
-                    clearInterval(stop),
-                    intro.style.display = 'none',
-                    MT.pause = () => { },
-                    Mt.play(),
-                    document.getElementsByClassName('player_speed_type')[0].children[5].click()
-                );
-            }, 1000);
-        }
+
+    //谷歌学术镜像
+    if (document.URL.includes('xs.zidianzhan.net')) {
+        document.getElementById('mainshadow').remove();
     }
+
+    //document.designMode='on';
 })();
