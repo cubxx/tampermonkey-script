@@ -2,7 +2,7 @@
 // @name         全局功能
 // @namespace    https://github.com/cubxx
 // @version      0.1
-// @description  设计模式开关 广告隐藏
+// @description  很多功能
 // @author       Cubxx
 // @include    *
 // @exclude   file:///*
@@ -12,146 +12,228 @@
 // @grant        none
 // ==/UserScript==
 
-(function () {
-    if (self === top) { //不添加在iframe中
-        let _mmove = document.onmousemove || function () { };
-        let hidd_left = -95;
-        let elm = {
-            style: 'padding:0;border:none;width:auto;height:35px;color:#fff;background-color:#fff0;font:bold 17px/20px caption;',
-            onmousedown: function (e) {
-                let _this = this;
-                var ex = e.clientX, ey = e.clientY,
-                    px = parseFloat(window.getComputedStyle(this).left),
-                    py = parseFloat(window.getComputedStyle(this).top);
-                var dx = px - ex, dy = py - ey;
-                document.onmousemove = function (e) {
-                    var ex = e.clientX, ey = e.clientY;
-                    _this.style.left = dx + ex + 'px';
-                    _this.style.top = dy + ey + 'px';
-                    _mmove(e);
-                }
-                this.onmouseup = function () {
-                    document.onmousemove = _mmove;
-                    if (parseFloat(this.style.left) < 0) this.style.left = hidd_left + 'px';
-                    if (parseFloat(this.style.top) < 0) this.style.top = '0px';
-                }
-            },
-            onclick: function (obj, on_off, func1, func2 = () => { }) {
-                if (on_off) func1(), obj.style.backgroundColor = '#fff0';
-                else func2(), obj.style.backgroundColor = '#fff5';
-            }
-        }
-        let find_frame = function (doc, func) { //不能解决iframe跨域问题
-            if (doc === null) { console.log('this.contentDocument == null'); return false; }
-            function get_frame() { return [...doc.getElementsByTagName('iframe'), ...doc.getElementsByTagName('frame')] }
-            func();
-            for (let f of get_frame()) { find_frame(f.contentDocument, func) }
-        }
-        var global = document.createElement('div');
-        global.id = '全局功能组';
-        global.style = 'display:flex;flex-direction:column;position:fixed;top:0;\
-		left:' + hidd_left + 'px;z-index:9999;width:100px;background-color:#0000;mix-blend-mode:difference;border:3px solid #fff;border-radius:10px;margin:0px';
-        global.onmousedown = elm.onmousedown;
-
-        { //设计模式
-            let 设计开关 = false;
-            let btn = document.createElement('input');
-            btn.id = '设计模式';
-            btn.type = 'button';
-            btn.value = '设计模式';
-            btn.style = elm.style;
-            btn.onmousedown = function () {
-                let ismove = false;
-                btn.onmousemove = function () { ismove = true }
-                btn.onmouseup = function () {
-                    !ismove && (elm.onclick(this, 设计开关,
-                        () => { find_frame(document, () => { document.designMode = 'off' }) },
-                        () => { find_frame(document, () => { document.designMode = 'on' }) }),
-                        设计开关 = !设计开关)
-                }
-            }
-            setInterval(function () { !document.contains(btn) && global.appendChild(btn) }, 1000); //
-        }
-
-        { //邮箱发送
-            let btn = document.createElement('input');
-            btn.id = '邮箱发送';
-            btn.type = 'button';
-            btn.value = '邮箱发送';
-            btn.style = elm.style;
-            btn.onmousedown = function () {
-                let ismove = false;
-                btn.onmousemove = function () { ismove = true }
-                btn.onmouseup = function () {
-                    !ismove && elm.onclick(this, 1, () => {
-                        let str = window.getSelection().toString();
-                        if (str && /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/.test(str)) window.open('mailto:' + str);
-                        else alert('邮箱格式错误\n' + (str || '空'));
-                    })
-                }
-            }
-            setInterval(function () { !document.contains(btn) && global.appendChild(btn) }, 1000); //
-        }
-        document.body.appendChild(global);
-    } //*/
-
+(async function () {
+    'use strict';
+    window.ObjectToFormData = function (obj) {
+        const formData = new FormData();
+        Object.keys(obj).forEach(key => { formData.append(key, obj[key]); });
+        return formData;
+    };
+    let $ = function (Selectors, isAll) {
+        let _this = this || document;
+        return isAll ? _this.querySelectorAll(Selectors) : _this.querySelector(Selectors);
+    };
+    let onloadFuncs = [];
     const _onload = window.onload;
-    window.onload = (...e) => { //广告删除
-        _onload && _onload(e);
-        function classArray(classname) { return document.getElementsByClassName(classname) }
-        let loop_num = 0, stop_num = 0;
-        let stop = setInterval(function () {
-            let loop_valid = false;
-            let ads = [
-                ...classArray('adsbygoogle'), //google
-                ...classArray('pb-ad'), //google
-                ...classArray('google-auto-placed'), //google
-                ...classArray('b_ad'), //bing-搜索
-                //...classArray('Pc-card Card'), //zhihu-首页
-                //...classArray('_2z1q32z'), //baidu-搜索
-                //...classArray(''), //
-                //...classArray(''), //
-                ...classArray(''), //
-                document.getElementById('player-ads'), //ytb-ads
-                document.getElementById('masthead-ad') //ytb-ads
-            ];
-            for (let ad of ads) {
-                if (ad && ad.style.display != 'none') {
-                    //ad.style.display='none';
-                    ad.remove();
-                    loop_valid = true;
+    window.onload = function () {
+        onloadFuncs.forEach(func => func());
+        _onload && _onload();
+    };
+
+    //全局功能组
+    (async function () {
+        if (self === top) { //不添加在iframe中
+            function findFrame(doc, func) { //不能解决iframe跨域问题
+                function get_frame() {
+                    return [...doc.getElementsByTagName('iframe'), ...doc.getElementsByTagName('frame')]
+                }
+                if (doc === null) {
+                    console.log('this.contentDocument == null');
+                    return false;
+                }
+                func();
+                for (let f of get_frame()) {
+                    findFrame(f.contentDocument, func)
                 }
             }
-            if (loop_valid) loop_num++;
-            if (loop_num >= stop_num) { clearInterval(stop); }
-        }, 100);
-    } //*/
+            Element.prototype.addButtons = function (configs) { //创建功能按钮 
+                return configs.map(config => {
+                    this.appendChild(Object.assign(document.createElement(config.tag || 'input'), {
+                        init: function (func) {
+                            this.id = this.name;
+                            this.value = this.name;
+                            this.title = this.name;
+                            func && func.call(this);
+                            return this;
+                        },
+                        type: 'button',
+                        style: `padding:0;border:none;border-bottom:solid 2px #000;border-radius: 10px;
+                            width:100%;height:35px;transition: 300ms;
+                            font:bold 17px/20px caption;outline: none;
+                            background-color: #bbb;`,
+                        onmousedown: function () {
+                            let ismove = false;
+                            this.onmousemove = function () { ismove = true }
+                            this.onmouseup = function () {
+                                if (!ismove) {
+                                    if (!this.do) this.func1(), this.style.opacity = 1;
+                                    else this.func2(), this.style.opacity = 0.5;
+                                }
+                            }
+                        },
+                        func1: function () { },
+                        func2: function () { },
+                    }, config).init())
+                });
+            };
+
+            //功能组
+            const _onmousemove = document.onmousemove || function () { },
+                hidd_left = -95;
+            var global = Object.assign(document.createElement('div'), {
+                id: '全局功能组',
+                style: `display:flex;flex-direction:column;position:fixed;
+                        top:0;left:${hidd_left}px;z-index:${1e6};width:100px;
+                        mix-blend-mode:difference;
+                        border:0px;border-radius:10px;margin:0px`,
+                onmousedown: function (e) {
+                    let _this = this;
+                    var ex = e.clientX, ey = e.clientY,
+                        px = parseFloat(window.getComputedStyle(this).left),
+                        py = parseFloat(window.getComputedStyle(this).top);
+                    var dx = px - ex, dy = py - ey;
+                    document.onmousemove = function (e) {
+                        var ex = e.clientX, ey = e.clientY;
+                        _this.style.left = dx + ex + 'px';
+                        _this.style.top = dy + ey + 'px';
+                        _onmousemove.call(this, e);
+                    }
+                    this.onmouseup = function () {
+                        document.onmousemove = _onmousemove;
+                        if (parseFloat(this.style.left) < 0) this.style.left = hidd_left + 'px';
+                        if (parseFloat(this.style.top) < 0) this.style.top = '0px';
+                    }
+                }
+            });
+            //添加按钮
+            global.addButtons([{
+                name: '设计模式',
+                do: true,
+                func1: function () { document.designMode = 'off', this.do = true },
+                func2: function () { document.designMode = 'on', this.do = false }
+            }, {
+                name: '邮箱发送',
+                func1: () => {
+                    let str = window.getSelection().toString() || prompt('请输入邮箱');
+                    str && window.open('mailto:' + str);
+                }
+            }, {
+                name: '地址查找',
+                apis: [
+                    ['amap', 'https://ditu.amap.com/search?query='],
+                    ['google', 'https://www.google.com/maps/search/'],
+                    ['bing', 'https://cn.bing.com/maps/?q='],
+                ],
+                func1: function () {
+                    let str = window.getSelection().toString() || prompt('请输入地址');
+                    let url = this.apis[prompt(this.apis.map((e, i) => `${i}\t${e[0]}`).join('\n')) || 0][1];
+                    str && window.open(url + encodeURI(str));
+                },
+            }, {
+                name: 'Bing AI',
+                func1: () => { window.open(`https://www.bing.com/search?showconv=0&q=${window.getSelection().toString()}&cc=us`) }
+            }]);
+            document.body.appendChild(global);
+        }
+    })();
+
+    //广告删除
+    (async function () {
+        function get(config) {
+            let ads = [];
+            config.class.forEach(e => ads.push(...document.getElementsByClassName(e)));
+            config.id.forEach(e => ads.push(document.getElementById(e)));
+            config.tag.forEach(kvw => {
+                ads.push(...[...document.getElementsByTagName(kvw[0])].filter(e => {
+                    return kvw[2].test(e[kvw[1]])
+                }))
+            });
+            return ads;
+        }
+        function del(e) {
+            if (e) {
+                e.innerHTML = '<img src="https://th.bing.com/th/id/OIP.UurI9RUzgeluKtlkOyar_wAAAA">';
+                e.style.display = 'none';
+                e.remove();
+            }
+        }
+        //删除广告iframe内文档
+        if (self != top && location.href.includes('googleads')) {
+            console.log(self.name);
+            self.open('https://th.bing.com/th/id/OIP.UurI9RUzgeluKtlkOyar_wAAAA', '_self');
+            del(self.document.documentElement);
+        };
+        if (typeof window.adsbygoogle != undefined) window.adsbygoogle = null;
+        //监听添加node
+        const _appendChild = Node.prototype.appendChild;
+        Node.prototype.appendChild = function (node) {
+            if (node.tagName == 'DIV' && /广告/.test(node.innerHTML));
+            else if (node.tagName == 'A' && /广告/.test(node.innerHTML));
+            else return _appendChild.call(this, node);
+        };
+        //DOM加载完后
+        onloadFuncs.push(function () {
+            let stop = setInterval(() => {
+                let ads = get({
+                    class: [
+                        'adsbygoogle', //google
+                        'pb-ad', //google
+                        'google-auto-placed', //google
+                        'ap_container', //google
+                        'ad', //google
+                        'b_ad', //bing-搜索
+                        //'Pc-card Card', //zhihu-首页
+                        'unionAd', //baidu-百科
+                        'jjjjasdasd', //halihali
+                        'pop-up-comp mask', //有道翻译
+                        '', //
+                    ],
+                    id: [
+                        'player-ads', //ytb-ads
+                        'masthead-ad', //ytb-ads
+                        'google_esf', //google
+                    ],
+                    tag: [
+                        ['iframe', 'src', /googleads/], //删除 iframe.src 中匹配正则的元素
+                        ['iframe', 'src', /app.moegirl/],
+                        ['div', 'innerText', /^(oversea AD\n)?(加载中|广告)$/],
+                    ],
+                });
+                ads.forEach(del);
+                console.log(ads);
+                clearInterval(stop);
+                console.log('停止识别广告');
+            }, 5e2);
+        });
+    })();
 
     //选择复制
     const _onkeydown = document.onkeydown;
     document.onkeydown = function (e) { //Ctrl+C
-        if (e.ctrlKey && e.keyCode === 67) {
+        if (e.ctrlKey && e.code === 'KeyC') {
             let content = window.getSelection().toString();
             content && navigator.clipboard.writeText(content);
         }
         _onkeydown && _onkeydown(e);
-    }
+    }; //*/
 
     //直接跳转
-    if (document.URL.includes('link.zhihu.com') ||
-        document.URL.includes('link.csdn.net') ||
-        document.URL.includes('c.pc.qq.com')) {
-        setTimeout(() => {
-            document.URL.includes('link.zhihu.com') && (location.href = document.getElementsByClassName('link')[0].innerHTML); //知乎
-            document.URL.includes('link.csdn.net') && document.getElementsByClassName('loading-btn')[0].click(); //CSDN
-            document.URL.includes('c.pc.qq.com') && (location.href = document.getElementById('url').innerText); //QQ
-        }, 100);
-    }
-
-    //谷歌学术镜像
-    if (document.URL.includes('xs.zidianzhan.net')) {
-        document.getElementById('mainshadow').remove();
-    }
-
-    //document.designMode='on';
+    (async function (config) {
+        for (let host in config) {
+            if (document.URL.includes(host)) {
+                setTimeout(config[host] || function () {
+                    location.href = new URL(document.URL).searchParams.get('target');
+                }, 100);
+            }
+        }
+    })({
+        'link.zhihu.com': null, //知乎
+        'link.csdn.net': null, //CSDN
+        'link.juejin.cn': null, //掘金
+        'c.pc.qq.com': function () {
+            let url = new URL(document.URL).searchParams.get('url');
+            location.href = url.includes('://') ? url : 'https://' + url;
+        }, //QQ
+    });
+    
 })();
