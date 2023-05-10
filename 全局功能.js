@@ -1,35 +1,20 @@
 // ==UserScript==
 // @name         全局功能
-// @namespace    https://github.com/cubxx
+// @namespace    global_function
 // @version      0.1
-// @description  很多功能
+// @description  null
 // @author       Cubxx
 // @include    *
 // @exclude   file:///*
 // @exclude   https://cubxx.github.io/*
 // @exclude   http://127.0.0.1:*/*
+// @require    https://cubxx.github.io/$tm.js
 // @icon         data:image/svg+xml,%3C?xml version='1.0' encoding='utf-8'?%3E%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cg id='XMLID_273_'%3E%3Cg id='XMLID_78_'%3E%3Cpath id='XMLID_83_' class='st0' d='M304.8,0H95.2C42.6,0,0,42.6,0,95.2v209.6C0,357.4,42.6,400,95.2,400h209.6 c52.6,0,95.2-42.6,95.2-95.2V95.2C400,42.6,357.4,0,304.8,0z M106.3,375C61.4,375,25,338.6,25,293.8c0-44.9,36.4-81.3,81.3-81.3 c44.9,0,81.3,36.4,81.3,81.3C187.5,338.6,151.1,375,106.3,375z M293.8,375c-44.9,0-81.3-36.4-81.3-81.3 c0-44.9,36.4-81.3,81.3-81.3c44.9,0,81.3,36.4,81.3,81.3C375,338.6,338.6,375,293.8,375z'/%3E%3C/g%3E%3Cg id='XMLID_67_' class='st2'%3E%3Cpath id='XMLID_74_' class='st3' d='M304.8,0H95.2C42.6,0,0,42.6,0,95.2v209.6C0,357.4,42.6,400,95.2,400h209.6 c52.6,0,95.2-42.6,95.2-95.2V95.2C400,42.6,357.4,0,304.8,0z M106.3,375C61.4,375,25,338.6,25,293.8c0-44.9,36.4-81.3,81.3-81.3 c44.9,0,81.3,36.4,81.3,81.3C187.5,338.6,151.1,375,106.3,375z M293.8,375c-44.9,0-81.3-36.4-81.3-81.3 c0-44.9,36.4-81.3,81.3-81.3c44.9,0,81.3,36.4,81.3,81.3C375,338.6,338.6,375,293.8,375z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E
 // @grant        none
 // ==/UserScript==
 
 (async function () {
     'use strict';
-    window.ObjectToFormData = function (obj) {
-        const formData = new FormData();
-        Object.keys(obj).forEach(key => { formData.append(key, obj[key]); });
-        return formData;
-    };
-    let $ = function (Selectors, isAll) {
-        let _this = this || document;
-        return isAll ? _this.querySelectorAll(Selectors) : _this.querySelector(Selectors);
-    };
-    let onloadFuncs = [];
-    const _onload = window.onload;
-    window.onload = function () {
-        onloadFuncs.forEach(func => func());
-        _onload && _onload();
-    };
-
     //全局功能组
     (async function () {
         if (self === top) { //不添加在iframe中
@@ -46,94 +31,99 @@
                     findFrame(f.contentDocument, func)
                 }
             }
-            Element.prototype.addButtons = function (configs) { //创建功能按钮 
-                return configs.map(config => {
-                    this.appendChild(Object.assign(document.createElement(config.tag || 'input'), {
-                        init: function (func) {
-                            this.id = this.name;
-                            this.value = this.name;
-                            this.title = this.name;
-                            func && func.call(this);
-                            return this;
+            //功能组
+            const _onmousemove = document.onmousemove || function () { },
+                hidd_left = -95;
+            $tm.onloadFuncs.push(e => document.body.appendChild(
+                $tm.addElmsGroup({
+                    box: {
+                        tag: 'div', id: '全局功能组',
+                        style: `display:flex;flex-direction:column;position:fixed;
+                            top:0;left:${hidd_left}px;z-index:${1e6};width:100px;
+                            mix-blend-mode:difference;
+                            border:0px;border-radius:10px;margin:0px`,
+                        onmousedown(e) {
+                            let _this = this;
+                            var ex = e.clientX,
+                                ey = e.clientY,
+                                px = parseFloat(window.getComputedStyle(this).left),
+                                py = parseFloat(window.getComputedStyle(this).top);
+                            var dx = px - ex,
+                                dy = py - ey;
+                            document.onmousemove = function (e) {
+                                var ex = e.clientX,
+                                    ey = e.clientY;
+                                _this.style.left = dx + ex + 'px';
+                                _this.style.top = dy + ey + 'px';
+                                _onmousemove.call(this, e);
+                            }
+                            this.onmouseup = function () {
+                                document.onmousemove = _onmousemove;
+                                if (parseFloat(this.style.left) < 0) this.style.left = hidd_left + 'px';
+                                if (parseFloat(this.style.top) < 0) this.style.top = '0px';
+                            }
+                        }
+                    },
+                    arr: [{
+                        name: '设计模式',
+                        do: true,
+                        func1() { document.designMode = 'off', this.do = true },
+                        func2() { document.designMode = 'on', this.do = false },
+                    }, {
+                        name: '邮箱发送',
+                        func1() {
+                            let email = getSelection().toString() || prompt('请输入邮箱');
+                            email && open('mailto:' + email);
+                        }
+                    }, {
+                        name: '地址查找',
+                        apis: [
+                            ['amap', 'https://ditu.amap.com/search?query='],
+                            ['google', 'https://www.google.com/maps/search/'],
+                            ['bing', 'https://cn.bing.com/maps/?q='],
+                        ],
+                        func1() {
+                            let address = '';
+                            if (address = getSelection().toString() || prompt('请输入地址')) {
+                                let url = this.apis[prompt('请选择地图引擎\n' + this.apis.map((e, i) => `${i} - ${e[0]}`).join('\n')) || 0][1];
+                                open(url + encodeURI(address));
+                            }
                         },
-                        type: 'button',
+                    }, {
+                        name: 'Bing AI',
+                        func1() {
+                            let text = getSelection().toString();
+                            $tm.urlFunc(/bing.com\/search/, e => { text = text || $('#sb_form_q').value });
+                            open(`https://www.bing.com/search?showconv=0&q=${text}&cc=us`);
+                        }
+                    }],
+                    defaults: {
+                        tag: 'input', type: 'button',
                         style: `padding:0;border:none;border-bottom:solid 2px #000;border-radius: 10px;
                             width:100%;height:35px;transition: 300ms;
                             font:bold 17px/20px caption;outline: none;
                             background-color: #bbb;`,
-                        onmousedown: function () {
+                        onmousedown() {
                             let ismove = false;
-                            this.onmousemove = function () { ismove = true }
+                            this.onmousemove = function () { ismove = true };
                             this.onmouseup = function () {
                                 if (!ismove) {
                                     if (!this.do) this.func1(), this.style.opacity = 1;
                                     else this.func2(), this.style.opacity = 0.5;
                                 }
-                            }
+                            };
                         },
-                        func1: function () { },
-                        func2: function () { },
-                    }, config).init())
-                });
-            };
-
-            //功能组
-            const _onmousemove = document.onmousemove || function () { },
-                hidd_left = -95;
-            var global = Object.assign(document.createElement('div'), {
-                id: '全局功能组',
-                style: `display:flex;flex-direction:column;position:fixed;
-                        top:0;left:${hidd_left}px;z-index:${1e6};width:100px;
-                        mix-blend-mode:difference;
-                        border:0px;border-radius:10px;margin:0px`,
-                onmousedown: function (e) {
-                    let _this = this;
-                    var ex = e.clientX, ey = e.clientY,
-                        px = parseFloat(window.getComputedStyle(this).left),
-                        py = parseFloat(window.getComputedStyle(this).top);
-                    var dx = px - ex, dy = py - ey;
-                    document.onmousemove = function (e) {
-                        var ex = e.clientX, ey = e.clientY;
-                        _this.style.left = dx + ex + 'px';
-                        _this.style.top = dy + ey + 'px';
-                        _onmousemove.call(this, e);
+                        func1() { },
+                        func2() { },
+                        init(func) {
+                            this.value = this.name;
+                            this.title = this.name;
+                            func && func.call(this);
+                            return this;
+                        },
                     }
-                    this.onmouseup = function () {
-                        document.onmousemove = _onmousemove;
-                        if (parseFloat(this.style.left) < 0) this.style.left = hidd_left + 'px';
-                        if (parseFloat(this.style.top) < 0) this.style.top = '0px';
-                    }
-                }
-            });
-            //添加按钮
-            global.addButtons([{
-                name: '设计模式',
-                do: true,
-                func1: function () { document.designMode = 'off', this.do = true },
-                func2: function () { document.designMode = 'on', this.do = false }
-            }, {
-                name: '邮箱发送',
-                func1: () => {
-                    let str = window.getSelection().toString() || prompt('请输入邮箱');
-                    str && window.open('mailto:' + str);
-                }
-            }, {
-                name: '地址查找',
-                apis: [
-                    ['amap', 'https://ditu.amap.com/search?query='],
-                    ['google', 'https://www.google.com/maps/search/'],
-                    ['bing', 'https://cn.bing.com/maps/?q='],
-                ],
-                func1: function () {
-                    let str = window.getSelection().toString() || prompt('请输入地址');
-                    let url = this.apis[prompt(this.apis.map((e, i) => `${i}\t${e[0]}`).join('\n')) || 0][1];
-                    str && window.open(url + encodeURI(str));
-                },
-            }, {
-                name: 'Bing AI',
-                func1: () => { window.open(`https://www.bing.com/search?showconv=0&q=${window.getSelection().toString()}&cc=us`) }
-            }]);
-            document.body.appendChild(global);
+                })
+            ));
         }
     })();
 
@@ -141,12 +131,10 @@
     (async function () {
         function get(config) {
             let ads = [];
-            config.class.forEach(e => ads.push(...document.getElementsByClassName(e)));
-            config.id.forEach(e => ads.push(document.getElementById(e)));
+            config.class.forEach(e => ads.push(...$(`.${e}`, 1)));
+            config.id.forEach(e => ads.push($(`#${e}`)));
             config.tag.forEach(kvw => {
-                ads.push(...[...document.getElementsByTagName(kvw[0])].filter(e => {
-                    return kvw[2].test(e[kvw[1]])
-                }))
+                ads.push(...[...$(kvw[0], 1)].filter(e => kvw[2].test(e[kvw[1]])));
             });
             return ads;
         }
@@ -163,16 +151,18 @@
             self.open('https://th.bing.com/th/id/OIP.UurI9RUzgeluKtlkOyar_wAAAA', '_self');
             del(self.document.documentElement);
         };
-        if (typeof window.adsbygoogle != undefined) window.adsbygoogle = null;
+        if (typeof window.adsbygoogle != undefined)
+            window.adsbygoogle = null;
         //监听添加node
         const _appendChild = Node.prototype.appendChild;
         Node.prototype.appendChild = function (node) {
             if (node.tagName == 'DIV' && /广告/.test(node.innerHTML));
             else if (node.tagName == 'A' && /广告/.test(node.innerHTML));
-            else return _appendChild.call(this, node);
+            else
+                return _appendChild.call(this, node);
         };
         //DOM加载完后
-        onloadFuncs.push(function () {
+        $tm.onloadFuncs.push(function () {
             let stop = setInterval(() => {
                 let ads = get({
                     class: [
@@ -186,11 +176,14 @@
                         'unionAd', //baidu-百科
                         'jjjjasdasd', //halihali
                         'pop-up-comp mask', //有道翻译
-                        '', //
+                        'ytd-ad-slot-renderer', //ytb
+                        'Ads', //nico
+                        // '', //
+                        // '', //
                     ],
                     id: [
-                        'player-ads', //ytb-ads
-                        'masthead-ad', //ytb-ads
+                        'player-ads', //ytb
+                        'masthead-ad', //ytb
                         'google_esf', //google
                     ],
                     tag: [
@@ -211,19 +204,23 @@
     const _onkeydown = document.onkeydown;
     document.onkeydown = function (e) { //Ctrl+C
         if (e.ctrlKey && e.code === 'KeyC') {
-            let content = window.getSelection().toString();
-            content && navigator.clipboard.writeText(content);
+            navigator.clipboard.writeText(getSelection().toString());
+            $('body').appendChild($tm.addElms([{
+                tag: 'p', style: `position: fixed;top: 0px;left: 0px;z-index: 99999;
+                    font-size: large;color: #fff;background-color: #d60;opacity: 0.8;
+                    padding: 5px;border-radius: 15px;`,
+                innerHTML: '复制成功',
+                del() { setTimeout(e => this.remove(), 2e3) }
+            }])[0]).del();
         }
-        _onkeydown && _onkeydown(e);
+        _onkeydown && _onkeydown.call(this, e);
     }; //*/
 
     //直接跳转
     (async function (config) {
         for (let host in config) {
             if (document.URL.includes(host)) {
-                setTimeout(config[host] || function () {
-                    location.href = new URL(document.URL).searchParams.get('target');
-                }, 100);
+                location.href = (config[host] && config[host]()) || new URL(document.URL).searchParams.get('target');
             }
         }
     })({
@@ -232,8 +229,15 @@
         'link.juejin.cn': null, //掘金
         'c.pc.qq.com': function () {
             let url = new URL(document.URL).searchParams.get('url');
-            location.href = url.includes('://') ? url : 'https://' + url;
+            return url.includes('://') ? url : 'https://' + url;
         }, //QQ
     });
-    
+
+    //推特左边栏清除滚动条
+    $tm.urlFunc(/twitter.com/, () => {
+        $('#react-root').nodeListener(e => {
+            $('header').$('.r-1wtj0ep').style.height = '735px';
+        });
+    });
+
 })();

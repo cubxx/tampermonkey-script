@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         学习通网课助手
-// @namespace    https://github.com/cubxx
+// @namespace    chaoxing_helper
 // @version      0.1
-// @description  lazy dog
+// @description  null
 // @author       Cubxx
 // @match      https://*.chaoxing.com/*
 // @icon         https://mooc.chaoxing.com/favicon.ico
+// @require     https://cubxx.github.io/$tm.js
 // @grant        none
 // ==/UserScript==
 

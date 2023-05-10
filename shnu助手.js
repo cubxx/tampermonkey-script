@@ -1,22 +1,22 @@
 // ==UserScript==
-// @name         上师大助手
-// @namespace    https://github.com/cubxx
+// @name         shnu助手
+// @namespace    shnu_helper
 // @version      0.1
 // @description  阿巴阿巴阿巴阿巴
 // @author       Cubxx
 // @include      /shnu\./
 // @icon         https://www.shnu.edu.cn/favicon.ico
+// @require    https://cubxx.github.io/$tm.js
 // @grant        none
 // ==/UserScript==
 
 (function () {
     'use strict';
-
     //学习通免登录
     $tm.urlFunc(/^http\:\/\/shnu.fy.chaoxing.com\/portal$/, () => {
         // location.href = 'http://passport2.chaoxing.com/logout.html?refer=http://shnu.fy.chaoxing.com/logout.jsp';
-        var enter = $('.courseZone fr');
-        if (enter) { enter.children[1].target = '_self', enter.children[1].click(); }
+        var enter = $('.courseZone');
+        if (enter) { enter.$('a').target = '_self', enter.$('a').click(); }
         else { $('.loginSub', 1)[1].click(); } //统一认证登录
     });
 
