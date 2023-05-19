@@ -14,13 +14,10 @@
 
 (async function () {
     'use strict';
+    document.body.style.overflow = 'visible';
     // 删除广告
     async function delAds() {
-        function classArray(arr) {
-            let ads = [];
-            arr.forEach(e => ads.push(...document.getElementsByClassName(e)));
-            return ads;
-        }
+        function classArray(arr) { let ads = []; arr.forEach(e => ads.push(...document.getElementsByClassName(e))); return ads; }
         let stop = setInterval(function () {
             let ads = classArray([
                 'ad-report', //bilibili-视频-广告
@@ -42,12 +39,13 @@
     }
     $tm.onloadFuncs.push(delAds);
 
-    //删首页 推广、赛事
+    //首页
     $tm.urlFunc(/www.bilibili.com\/$/, () => {
         $('main').nodeListener(async function () {
-            let main = $('main');
-            main.children[2].style.display = 'none';
-            main.children[3].style.display = 'none';
+            [...this.$('section', 1)].filter(e => {
+                let a = e.$('a');
+                if (a) return a.id == '推广';
+            }).forEach(e => e.style.display = 'none');
         });
     });
 
@@ -100,24 +98,25 @@
                 if (a.innerText.slice(0, 2) == 'sm') a.setValue('href', `https://www.nicovideo.jp/watch/${a.innerText}`);
             });
         });
+        // 宽屏时关灯
+        $('.bpx-player-control-bottom-right').nodeListener(function () {
+            const btn = $('.bpx-player-ctrl-btn[aria-label=宽屏]');
+            if (btn) {
+                btn.onclick = function () { $('.bui-checkbox-input[aria-label=关灯模式]').click() };
+                return true;
+            }
+        }, { childList: true });
         // 功能组
         if (!__INITIAL_STATE__.videoData) throw 'window.__INITIAL_STATE__.videoData 失效';
         buttonGroup([{
             name: '搬运',
             onclick() {
-                const mfun = 'https://www.mfuns1.cn', vid = __INITIAL_STATE__.videoData.bvid;
-                let stop = false;
-                if (vid) {
-                    const win = window.open(mfun),
-                        key = setInterval(() => {
-                            win.postMessage(vid, mfun);
-                            vtip(`发送${vid}`);
-                            if (win.closed || stop) vtip('停止发送'), clearInterval(key);
-                        }, 1e3);
-                    window.addEventListener('message', e => {
-                        if (e.origin == mfun && e.data == 'OK') stop = true;
-                    });
-                } else throw 'vid is null';
+                $tm.postMessage({
+                    url: 'https://www.mfuns1.cn',
+                    data: __INITIAL_STATE__.videoData.bvid,
+                    signal: 'OK',
+                    func(d) { vtip(`发送${d}`) },
+                }).then(e => vtip('停止发送'));
             }
         }, {
             name: '截图',
@@ -137,7 +136,17 @@
             }
         }, {
             name: '封面',
-            onclick() { open(__INITIAL_STATE__.videoData.pic) }
+            onclick() { open(__INITIAL_STATE__.videoData.pic) },
+        }, {
+            name: '下载',
+            onclick() {
+                const arr = [
+                    'https://bilibili.iiilab.com/?hao.su',
+                    'https://www.yiuios.com/tool/bilibili',
+                    'https://xbeibeix.com/api/bilibili/',
+                ];
+                navigator.clipboard.writeText(location.href).then(e => { open(arr[Math.floor(Math.random() * arr.length)]) })
+            },
         }]);
     });
     $tm.urlFunc(/www.bilibili.com\/bangumi/, () => {

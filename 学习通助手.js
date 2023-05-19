@@ -38,7 +38,7 @@
         });
     });
 
-    //控制播放
+    //视频
     $tm.urlFunc(/ananas\/modules\/video\/index.html\?v=/, () => {
         // window.onerror = () => { return true } //隐藏报错
         let v;
@@ -77,7 +77,7 @@
         }, 5 * 1000)
     });
 
-    //模拟阅读
+    //阅读
     $tm.urlFunc(/ztnodedetailcontroller/, () => {
         let li = document.getElementsByClassName('wh wh'), n = 0;
         setInterval(() => {
@@ -102,9 +102,9 @@
         }, 10 * 1000);
     });
 
-    //直播回放 //查看进度 https://mooc1.chaoxing.com/ananas/live/liveinfo
+    //直播
     $tm.urlFunc(/zhibo.chaoxing.com/, () => {
-        alert('脚本加载完成');
+        alert('脚本加载完成'); //进度https://mooc1.chaoxing.com/ananas/live/liveinfo
         //解除拖拽
         player.currentTime(myVid.duration);
         //记录时间
@@ -130,4 +130,37 @@
             }
         }, 30 * 1e3);
     });
+
+    //课程
+    $tm.urlFunc(/mycourse\/stu/, () => {
+        //设置子页面
+        !function (arr) {
+            let sub = '章节';
+            arr.forEach(([reg, text]) => reg.test(document.title) && (sub = text));
+            $(`#boxscrollleft .stuNavigationList ul li a[title=${sub}]`).click();
+        }([
+            [/统计/, '作业'],
+        ]);
+    });
+
+    //作业
+    $tm.urlFunc(/work\/dowork/, () => {
+        $('#submitForm').appendChild($tm.addElms([{
+            tag: 'input', type: 'button', value: '复制', style: `position: absolute;top: 0;`, onclick() {
+                let text = [...$(`#submitForm>div h2,.questionLi>*:not(.stem_answer,:empty)`, 1)].map(e => e.innerText.replace(/\n+/g, '\n')).join('');
+                navigator.clipboard.writeText(text).then(e => $tm.tip('复制成功'));
+            }
+        }])[0]);
+    });
+	
+	//资料
+	$tm.urlFunc(/ueditorupload\/read/, () => {
+		$('.mainCon,#reader,#reader>iframe', 1).forEach(e=>e.style = 'width:90%;text-align:center;');
+		$('#reader>iframe').height = 1e4+'px';
+		$('#reader>iframe').nodeListener(function(){this.style.height = '';}, {attributes:true});
+	});
+	$tm.urlFunc(/ananas\/modules\/pdf/, () => {
+		$('#docContainer').style = 'height:100%;';
+		$('#docContainer').nodeListener(e=>{$('#img').style = 'height:100%;'});
+	});
 })();

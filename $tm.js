@@ -2,37 +2,38 @@
     if (typeof window.$tm == 'undefined') window.$tm = t();
 }(this, function () {
     'use strict';
-    return new class {
-        constructor() {
-            this.onloadFuncs = [];
-            this.libs = { 'axios': 'https://unpkg.com/axios/dist/axios.min.js' };
-        }
-        init() {
-            const _onload = window.onload;
-            window.onload = function () {
-                $tm.onloadFuncs.forEach(func => func());
-                _onload && _onload();
-            };
-            Object.assign(Node.prototype, {
-                $: this.$,
-                nodeListener(func, config) {
-                    new MutationObserver((mutationList, observer) => {
-                        func.call(this, mutationList, observer);
-                    }).observe(this, config || {
-                        childList: true,
-                        subtree: true,
-                        attributes: false,
-                    });
-                },
-                setValue(name, value) {
-                    if (this[name] != value) this[name] = value;
-                },
+    const $ = function (Selectors, all) {
+        let _this = this ? (this instanceof Node ? this : null) : document;
+        if (_this) return all ? _this.querySelectorAll(Selectors) : _this.querySelector(Selectors);
+        else throw `this对象类型错误 ${this}`;
+    };
+    Object.assign(Node.prototype, {
+        $,
+        nodeListener(func, config) {
+            let stop = false;
+            new MutationObserver((mutationList, observer) => {
+                if (!stop) stop = func.call(this, mutationList, observer);
+            }).observe(this, config || {
+                childList: true,
+                subtree: true,
+                attributes: false,
             });
+        },
+        setValue(name, value) { if (this[name] != value) this[name] = value; },
+    });
+    return new class {
+        $ = $;
+        onloadFuncs = [];
+        libs = { 'axios': 'https://unpkg.com/axios/dist/axios.min.js' };
+        constructor() { }
+        init() {
+            window.addEventListener('load', e => {
+                this.onloadFuncs.forEach(func => func());
+            }, true);
+            window.addEventListener('error', e => {
+                if (e instanceof ErrorEvent) e.filename.includes('userscript.html') && this.tip(e.message, 3e3, 'red');
+            }, true);
             return this;
-        }
-        $(Selectors, all) {
-            let _this = this || document;
-            return all ? _this.querySelectorAll(Selectors) : _this.querySelector(Selectors);
         }
         ObjectToFormData(obj) {
             const formData = new FormData();
@@ -44,7 +45,7 @@
         addElms(arr, defaults) {
             defaults = defaults || { tag: 'div' };
             return arr.map(config => {
-                let elm = Object.assign(document.createElement(config.tag || defaults.tag), defaults, config);
+                const elm = Object.assign(document.createElement(config.tag || defaults.tag), defaults, config);
                 elm.init && elm.init();
                 return elm;
             });
@@ -72,7 +73,35 @@
                 })
             )).then(es => es.forEach(e => { if (e.status == 'rejected') throw e.reason }));
         }
+        tip(info, time = 1e3, color = 'orange') {
+            let elm = document.body.appendChild(this.addElms([{
+                style: `position: fixed;top: 0%;left: 50%;transform: translate(-50%,-50%);
+                    background-color: ${color};color: black;
+                    margin: auto;padding: 5px 10px;border-radius: 10px;
+                    font-size: 20px;font-weight: bold;opacity: 0;
+                    transition: 300ms;z-index: 99999;display: block !important;`,
+                innerHTML: info,
+                init() { setTimeout(e => this.remove(), time); },
+                animate() { this.style.opacity = '', this.style.transform = 'translate(-50%,50%)' },
+            }])[0]);
+            setTimeout(e => elm.animate(), 5);
+            return elm;
+        }
+        async postMessage({ url, data, signal, func }) {
+            return new Promise((resolve, reject) => {
+                let stop = false;
+                const win = window.open(url),
+                    key = setInterval(() => {
+                        win.postMessage(data, url);
+                        func && func(data);
+                        if (win.closed) reject(), clearInterval(key);
+                        if (stop) resolve(), clearInterval(key);
+                    }, 1e3);
+                window.addEventListener('message', e => {
+                    if (e.origin == url && e.data == signal) stop = true;
+                });
+            });
+        };
     }().init();
 });
-// 设置环境变量
-let { $, ObjectToFormData } = $tm;
+const { $, ObjectToFormData } = $tm;

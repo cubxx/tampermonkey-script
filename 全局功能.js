@@ -16,7 +16,7 @@
 (async function () {
     'use strict';
     //全局功能组
-    (async function () {
+    !async function () {
         if (self === top) { //不添加在iframe中
             function findFrame(doc, func) { //不能解决iframe跨域问题
                 function get_frame() {
@@ -40,7 +40,7 @@
                         tag: 'div', id: '全局功能组',
                         style: `display:flex;flex-direction:column;position:fixed;
                             top:0;left:${hidd_left}px;z-index:${1e6};width:100px;
-                            mix-blend-mode:difference;
+                            mix-blend-mode:difference;display: block !important;
                             border:0px;border-radius:10px;margin:0px`,
                         onmousedown(e) {
                             let _this = this;
@@ -125,10 +125,10 @@
                 })
             ));
         }
-    })();
+    }();
 
     //广告删除
-    (async function () {
+    !async function () {
         function get(config) {
             let ads = [];
             config.class.forEach(e => ads.push(...$(`.${e}`, 1)));
@@ -178,7 +178,7 @@
                         'pop-up-comp mask', //有道翻译
                         'ytd-ad-slot-renderer', //ytb
                         'Ads', //nico
-                        // '', //
+                        'ads', //nico
                         // '', //
                     ],
                     id: [
@@ -190,6 +190,7 @@
                         ['iframe', 'src', /googleads/], //删除 iframe.src 中匹配正则的元素
                         ['iframe', 'src', /app.moegirl/],
                         ['div', 'innerText', /^(oversea AD\n)?(加载中|广告)$/],
+                        ['iframe', 'src', /ads.nicovideo.jp/],
                     ],
                 });
                 ads.forEach(del);
@@ -198,46 +199,84 @@
                 console.log('停止识别广告');
             }, 5e2);
         });
-    })();
+    }();
 
     //选择复制
-    const _onkeydown = document.onkeydown;
-    document.onkeydown = function (e) { //Ctrl+C
-        if (e.ctrlKey && e.code === 'KeyC') {
-            navigator.clipboard.writeText(getSelection().toString());
-            $('body').appendChild($tm.addElms([{
-                tag: 'p', style: `position: fixed;top: 0px;left: 0px;z-index: 99999;
-                    font-size: large;color: #fff;background-color: #d60;opacity: 0.8;
-                    padding: 5px;border-radius: 15px;`,
-                innerHTML: '复制成功',
-                del() { setTimeout(e => this.remove(), 2e3) }
-            }])[0]).del();
+    document.addEventListener('keydown', e => {
+        let text = getSelection().toString();
+        if (text && e.ctrlKey && e.code === 'KeyC') {
+            if (!navigator.clipboard) throw '不支持 navigator.clipboard';
+            navigator.clipboard.writeText(text).then(e => $tm.tip('复制成功'));
         }
-        _onkeydown && _onkeydown.call(this, e);
-    }; //*/
+    });
 
     //直接跳转
-    (async function (config) {
-        for (let host in config) {
+    !async function () {
+        const arr = {
+            'link.zhihu.com': null, //知乎
+            'link.csdn.net': null, //CSDN
+            'link.juejin.cn': null, //掘金
+            'c.pc.qq.com': function () {
+                let url = new URL(document.URL).searchParams.get('url');
+                return url.includes('://') ? url : 'https://' + url;
+            }, //QQ
+        };
+        for (let host in arr) {
             if (document.URL.includes(host)) {
-                location.href = (config[host] && config[host]()) || new URL(document.URL).searchParams.get('target');
+                location.href = (arr[host] && arr[host]()) || new URL(document.URL).searchParams.get('target');
             }
         }
-    })({
-        'link.zhihu.com': null, //知乎
-        'link.csdn.net': null, //CSDN
-        'link.juejin.cn': null, //掘金
-        'c.pc.qq.com': function () {
-            let url = new URL(document.URL).searchParams.get('url');
-            return url.includes('://') ? url : 'https://' + url;
-        }, //QQ
-    });
+    }();
 
     //推特左边栏清除滚动条
     $tm.urlFunc(/twitter.com/, () => {
         $('#react-root').nodeListener(e => {
-            $('header').$('.r-1wtj0ep').style.height = '735px';
+            let elm = $('header').$('.r-1wtj0ep');
+            if (elm) elm.style.height = '735px';
         });
     });
 
+    //bingAI界面优化
+    $tm.urlFunc(/www.bing.com\/search\?/, () => {
+        $('body').nodeListener(function () {
+            let main = $('cib-serp') && $('cib-serp').shadowRoot;
+            if (main) {
+                $('#id_h').style = 'right:calc(40px - calc(100vw - 100%))';
+                //左布局
+                let conversation = main.$('#cib-conversation-main').shadowRoot.children[0];
+                conversation.insertBefore(conversation.$('.side-panel'), conversation.$('.scroller-positioner'));
+                let inputBox = main.$('#cib-action-bar-main');
+                inputBox.style.right = '0px';
+                //清空会话
+                let surface = main.$('#cib-conversation-main').children[0].shadowRoot.$('.surface');
+                let threads = surface.$('.threads');
+                surface.appendChild($tm.addElms([{
+                    tag: 'input', type: 'button',
+                    value: '清空会话', className: 'show-recent',
+                    onclick() { threads.$('cib-thread', 1).forEach(e => e.shadowRoot.$('.delete').click()); }
+                }])[0]);
+                //历史会话
+                const height = 500;
+                surface.style.cssText = 'max-height: fit-content;';
+                threads.style.cssText += `overflow-y: scroll;flex-wrap: nowrap;max-height: ${height}px;min-height: ${height}px;`;
+                surface.nodeListener(function () {
+                    this.$('button').remove();
+                    threads.$('cib-thread', 1).forEach(e => {
+                        e.removeAttribute('hide');
+                        e.nodeListener(function () { this.removeAttribute('hide'); }, { attributes: true })
+                    });
+                    return true;
+                }, { childList: true });
+                return true;
+            }
+        }, { childList: true });
+    });
+
+    //mdn换成中文
+    $tm.urlFunc(/developer.mozilla.org\/en-US/, () => {
+        let b = $('#languages-switcher-button');
+        if (b) b.parentElement.nodeListener(() => {
+            $('.language-menu button', 1).forEach(e => e.innerText.includes('简体') && e.click());
+        }), b.click();
+    });
 })();
