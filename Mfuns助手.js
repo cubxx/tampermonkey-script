@@ -57,52 +57,53 @@
     // 搬运工具
     !async function () {
         //创建输入框
-        let [inp, btn] = $tm.addElms([{
-            tag: 'input',
-            id: 'inpvid',
-            placeholder: '  输入av/BV号...',
-            maxLength: '12',
-            style: `position:fixed; top:0; left:0; width:110px; height:20px; border:none; padding-bottom:40px; z-index:9999; background-color:#0000; opacity:0.5;`,
-            oninput() { //防抖
-                let _this = this;
-                this.stop && clearTimeout(this.stop);
-                this.stop = setTimeout(() => {
-                    config = undefined;
-                    vid = _this.value;
-                    //jsonp跨源 通过vid 请求接口
-                    let res = checkVid(vid);
-                    if (res.isAv || res.isBv) {
-                        //检查vid格式
-                        let vid_code = res.isAv ? '&aid=' + vid.slice(2) :
-                            res.isBv ? '&bvid=' + vid : '';
-                        //更新script标签的src
-                        let src = `${bv_data_api}${vid_code}&callback=_callback`; //调用_callback
-                        script_elm && script_elm.remove();
-                        script_elm = addScriptElm(src);
-                        state = 1;
-                    }
-                }, 500);
-            }
-        }, {
-            tag: 'input',
-            id: 'inpok',
-            type: 'button',
-            value: '开冲',
-            style: `position:fixed; top:20px; left:0;  width:110px; height:20px; border:none; z-index:9999; background-color:#0003; opacity:0.5;`,
-            onclick() {
-                //根据config 写入上传信息
-                let elm = $('.jinsom-publish-words-bar');
-                if (!elm && config) {
-                    if (config.code !== 0) alert(config.message + '\ncode:' + config.code);
-                    else {
-                        jinsom_publish_power('video'); //环境函数 打开上传界面
-                        let stop = setInterval(() => {
-                            writeVideoInfo(config) && clearInterval(stop), (state = 2);
-                        }, 100);
-                    }
-                } else alert('输入有误\nav号长度应小于13\nbv号长度应为12');
-            }
-        }]).map(e => document.body.appendChild(e));
+        const [inp, btn] = $tm.addElms({
+            arr: [{
+                tag: 'input',
+                id: 'inpvid',
+                placeholder: '  输入av/BV号...',
+                maxLength: '12',
+                style: `position:fixed; top:0; left:0; width:110px; height:20px; border:none; padding-bottom:40px; z-index:9999; background-color:#0000; opacity:0.5;`,
+                oninput() { //防抖
+                    const _this = this;
+                    this.stop && clearTimeout(this.stop);
+                    this.stop = setTimeout(() => {
+                        config = undefined;
+                        vid = _this.value;
+                        //jsonp跨源 通过vid 请求接口
+                        const res = checkVid(vid);
+                        if (res.isAv || res.isBv) {
+                            //检查vid格式
+                            const vid_code = res.isAv ? '&aid=' + vid.slice(2) :
+                                res.isBv ? '&bvid=' + vid : '';
+                            //更新script标签的src
+                            script_elm?.remove();
+                            script_elm = addScriptElm(`${bv_data_api}${vid_code}&callback=_callback`);
+                            state = 1;
+                        }
+                    }, 500);
+                }
+            }, {
+                tag: 'input',
+                id: 'inpok',
+                type: 'button',
+                value: '开冲',
+                style: `position:fixed; top:20px; left:0;  width:110px; height:20px; border:none; z-index:9999; background-color:#0003; opacity:0.5;`,
+                onclick() {
+                    //根据config 写入上传信息
+                    const elm = $('.jinsom-publish-words-bar');
+                    if (!elm && config) {
+                        if (config.code !== 0) alert(config.message + '\ncode:' + config.code);
+                        else {
+                            jinsom_publish_power('video'); //环境函数 打开上传界面
+                            const stop = setInterval(() => {
+                                writeVideoInfo(config) && clearInterval(stop), (state = 2);
+                            }, 100);
+                        }
+                    } else alert('输入有误\nav号长度应小于13\nbv号长度应为12');
+                }
+            }]
+        }).map(e => document.body.appendChild(e));
 
         //根据vid自动写入 跨源
         const bv_api = 'https://video_api.kms233.com/bili/',
@@ -150,9 +151,9 @@
         }
         //写入上传信息
         function writeVideoInfo(config) {
-            let elm = $('.jinsom-publish-words-bar');
+            const elm = $('.jinsom-publish-words-bar');
             if (elm) {
-                let url = $('#jinsom-video-url'),
+                const url = $('#jinsom-video-url'),
                     pic = $('#jinsom-video-img-url'),
                     title = $('#jinsom-pop-title') || (elm.children[0].click(), $('#jinsom-pop-title')),
                     content = $('#jinsom-pop-content');
@@ -168,8 +169,8 @@
                         console.log(config.data);
                         return true
                     }
-                } else debugger
-            } else return false
+                } else debugger;
+            } else return false;
         }
     }();
 

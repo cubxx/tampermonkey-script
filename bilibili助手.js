@@ -14,23 +14,22 @@
 
 (async function () {
     'use strict';
-    document.body.style.overflow = 'visible';
+    document.body.style.overflow = 'auto';
     // 删除广告
     async function delAds() {
-        function classArray(arr) { let ads = []; arr.forEach(e => ads.push(...document.getElementsByClassName(e))); return ads; }
         let stop = setInterval(function () {
-            let ads = classArray([
-                'ad-report', //bilibili-视频-广告
-                'slide-ad-exp', //bilibili-视频-广告
-                'pop-live-small-mode', //bilibili-视频-mini直播
-                'eva-banner', //bilibili-横向广告
-                'banner-card', //bilibili-横向广告-老版
-                'gg-floor-module', //bilibili-番剧
-                'activity-banner', //bilibili-活动
-                'bili-dyn-ads', //bilibili-动态广告
-                'reply-notice', //bilibili-通知
-                '', //bilibili-
-            ]);
+            const ads = [
+                '.ad-report', //bilibili-视频-广告
+                '.slide-ad-exp', //bilibili-视频-广告
+                '.pop-live-small-mode', //bilibili-视频-mini直播
+                '.eva-banner', //bilibili-横向广告
+                '.banner-card', //bilibili-横向广告-老版
+                '.gg-floor-module', //bilibili-番剧
+                '.activity-banner', //bilibili-活动
+                '#activity_vote', //bilibili-活动
+                '.bili-dyn-ads', //bilibili-动态广告
+                '.reply-notice', //bilibili-通知
+            ].flatMap(e => [...$(e, 1)]);
             for (let ad of ads) ad.style.display = 'none';
             if (document.URL.includes('bilibili.com/video'))
                 ads.length == 0 && clearInterval(stop);
@@ -50,18 +49,21 @@
     });
 
     // 视频功能
-    function vtip(text) {
-        let elm = $(`#tip_${text}`);
+    function vtip(text, id) {
+        id ??= text;
+        const elm = $(`#tip_${id}`);
         if (elm) {
             (typeof elm.stop == 'number') && clearTimeout(elm.stop);
             elm.del();
         } else {
-            $('.bpx-player-tooltip-area').appendChild($tm.addElms([{
-                tag: 'div', className: 'bpx-player-tooltip-item', id: `tip_${text}`,
-                style: `position: relative;top: -310px;margin: auto;visibility: visible;opacity: 1;`,
-                innerHTML: `<div class="bpx-player-tooltip-title">${text}</div>`,
-                del() { this.stop = setTimeout(() => this.remove(), 2.5e3); },
-            }])[0]).del();
+            $('.bpx-player-tooltip-area').appendChild($tm.addElms({
+                arr: [{
+                    tag: 'div', className: 'bpx-player-tooltip-item', id: `tip_${id}`,
+                    style: `position: relative;top: -310px;margin: auto;visibility: visible;opacity: 1;`,
+                    innerHTML: `<div class="bpx-player-tooltip-title">${text}</div>`,
+                    del() { this.stop = setTimeout(() => this.remove(), 2.5e3); },
+                }]
+            })[0]).del();
         }
     }
     function buttonGroup(configs) {
@@ -70,9 +72,9 @@
                 box: {
                     id: '视频功能组', tag: 'div',
                     style: `position: absolute;left: -10px;top: 0px;z-index: 0;
-                        display: flex;flex-direction: column;
+                        display: flex;flex-direction: column;align-items: center;
                         border-radius: 5px;border: 1px solid #888;
-                        opacity: 0.4;transition: 300ms`,
+                        opacity: 0.4;transition: 300ms;`,
                     onmouseenter() { this.style.opacity = '1'; this.style.left = '-' + getComputedStyle(this).width },
                     onmouseleave() { this.style.opacity = '0.4'; this.style.left = '-10px' },
                 },
@@ -82,8 +84,10 @@
                     style: `border-radius: 5px;border: none;border-bottom: 1px solid #aaa;padding: 5px 10px;
                         background-color: #eee;font-size: 15px;outline: none;`,
                     init() {
-                        this.title = this.name;
-                        this.value = this.name;
+                        this.name ??= '';
+                        this.title ||= this.name;
+                        this.value ||= this.name;
+                        this.style.cssText += this.addStyle;
                         return this
                     }
                 }
@@ -98,13 +102,15 @@
                 if (a.innerText.slice(0, 2) == 'sm') a.setValue('href', `https://www.nicovideo.jp/watch/${a.innerText}`);
             });
         });
-        // 宽屏时关灯
+        // 宽屏模式
         $('.bpx-player-control-bottom-right').nodeListener(function () {
-            const btn = $('.bpx-player-ctrl-btn[aria-label=宽屏]');
-            if (btn) {
-                btn.onclick = function () { $('.bui-checkbox-input[aria-label=关灯模式]').click() };
-                return true;
-            }
+            const broad = $('.bpx-player-ctrl-btn[aria-label=宽屏]'),
+                clarity = $('.bpx-player-ctrl-btn[aria-label=清晰度]');
+            const light = $('.bui-checkbox-input[aria-label=关灯模式]');
+            if (broad) return broad.onclick = function (e) {
+                light.click(); //开关灯
+                clarity.$(`li[data-value="${[16, 64][+light.checked]}"]`).click(); //720p/360p
+            };
         }, { childList: true });
         // 功能组
         if (!__INITIAL_STATE__.videoData) throw 'window.__INITIAL_STATE__.videoData 失效';
@@ -121,16 +127,16 @@
         }, {
             name: '截图',
             onclick() {
-                (function (elm) {
+                !function (elm) {
                     switch (elm.tagName) {
                         case 'VIDEO': return Object.assign(document.createElement('canvas'), {
                             width: elm.videoWidth, height: elm.videoHeight,
                             init() { this.getContext('2d').drawImage(elm, 0, 0); return this }
                         }).init();
                         case 'BWP-VIDEO': return elm.getRenderCanvas();
-                        default: console.log('不认识的tag呢', elm.tagName)
+                        default: console.log('不认识的tag呢', elm.tagName);
                     }
-                })($('.bpx-player-video-wrap>*')).toBlob(blob => {
+                }($('.bpx-player-video-wrap>*')).toBlob(blob => {
                     navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(e => vtip('已截图'));
                 }, 'image/png');
             }
@@ -146,6 +152,16 @@
                     'https://xbeibeix.com/api/bilibili/',
                 ];
                 navigator.clipboard.writeText(location.href).then(e => { open(arr[Math.floor(Math.random() * arr.length)]) })
+            },
+        }, {
+            name: '播放速度', tag: 'i', innerText: '1',
+        }, {
+            type: 'range',
+            step: '0.1', min: '0', max: '3', value: '1',
+            addStyle: '-webkit-appearance: slider-vertical;width: 20px;padding:0px;',
+            oninput() {
+                $('.bpx-player-video-wrap>*').playbackRate = +this.value;
+                this.previousElementSibling.innerText = this.value;
             },
         }]);
     });
@@ -169,4 +185,5 @@
             }
         }]);
     });
+
 })();

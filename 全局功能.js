@@ -32,98 +32,191 @@
                 }
             }
             //功能组
-            const _onmousemove = document.onmousemove || function () { },
-                hidd_left = -95;
-            $tm.onloadFuncs.push(e => document.body.appendChild(
-                $tm.addElmsGroup({
-                    box: {
-                        tag: 'div', id: '全局功能组',
-                        style: `display:flex;flex-direction:column;position:fixed;
-                            top:0;left:${hidd_left}px;z-index:${1e6};width:100px;
-                            mix-blend-mode:difference;display: block !important;
-                            border:0px;border-radius:10px;margin:0px`,
-                        onmousedown(e) {
-                            let _this = this;
-                            var ex = e.clientX,
-                                ey = e.clientY,
-                                px = parseFloat(window.getComputedStyle(this).left),
-                                py = parseFloat(window.getComputedStyle(this).top);
-                            var dx = px - ex,
-                                dy = py - ey;
-                            document.onmousemove = function (e) {
-                                var ex = e.clientX,
-                                    ey = e.clientY;
-                                _this.style.left = dx + ex + 'px';
-                                _this.style.top = dy + ey + 'px';
-                                _onmousemove.call(this, e);
-                            }
-                            this.onmouseup = function () {
-                                document.onmousemove = _onmousemove;
-                                if (parseFloat(this.style.left) < 0) this.style.left = hidd_left + 'px';
-                                if (parseFloat(this.style.top) < 0) this.style.top = '0px';
-                            }
+            const _onmousemove = document.onmousemove,
+                hiddLeft = -98;
+            const buttonArr = [{
+                name: '设计模式',
+                func1() { document.designMode = 'on', this.style.backgroundColor = '#bbb' },
+                func2() { document.designMode = 'off', this.style.backgroundColor = '' },
+            }, {
+                name: '邮箱发送',
+                func1() {
+                    const email = getSelection().toString() || prompt('请输入邮箱');
+                    email && open('mailto:' + email);
+                    this.did = !!email;
+                }
+            }, {
+                name: '地址查找',
+                apis: [
+                    ['amap', 'https://ditu.amap.com/search?query='],
+                    ['google', 'https://www.google.com/maps/search/'],
+                    ['bing', 'https://cn.bing.com/maps/?setlang=zh-Hans&q='],
+                ],
+                func1() {
+                    let address = getSelection().toString();
+                    if (address ||= prompt('请输入地址')) {
+                        this.group.attachment.innerHTML = `<b style="white-space: nowrap;">${address}</b>`
+                            + $tm.addElms({
+                                arr: this.apis.map(e => {
+                                    return {
+                                        href: e[1] + encodeURI(address),
+                                        innerText: e[0],
+                                    }
+                                }),
+                                defaults: {
+                                    tag: 'a',
+                                    style: `text-decoration: none;display: block;padding: 2px;`,
+                                    target: '_blank',
+                                    init() { this.title = this.href; }
+                                }
+                            }).map(e => e.outerHTML).join('');
+                    } else this.did = false;
+                }
+            }, {
+                name: 'Bing AI',
+                addStyle: 'background-color:#2870ea;color:#fff',
+                func1() {
+                    let text = getSelection().toString();
+                    $tm.urlFunc(/bing.com\/search/, e => { text ||= $('#sb_form_q').value });
+                    open(`https://www.bing.com/search?showconv=0&q=${text}&cc=us`);
+                }
+            }, {
+                name: 'ChatGPT',
+                addStyle: 'background-color:#75a99c;color:#fff',
+                apis: [
+                    'https://chat2.jinshutuan.com/',
+                    'https://chatbot.theb.ai/',
+                    'https://chat.gptchinese.info/',
+                    'https://chat35.com/chat',
+                    'https://chatforai.com/',
+                    'https://chat.xeasy.me/',
+                ],
+                func1() {
+                    this.group.attachment.innerHTML = $tm.addElms({
+                        arr: this.apis.map(e => { return { href: e } }),
+                        defaults: {
+                            tag: 'a',
+                            style: `text-decoration: none;display: block;padding: 2px;`,
+                            target: '_blank',
+                            init() { this.innerText = this.title = this.href; }
                         }
-                    },
-                    arr: [{
-                        name: '设计模式',
-                        do: true,
-                        func1() { document.designMode = 'off', this.do = true },
-                        func2() { document.designMode = 'on', this.do = false },
-                    }, {
-                        name: '邮箱发送',
-                        func1() {
-                            let email = getSelection().toString() || prompt('请输入邮箱');
-                            email && open('mailto:' + email);
+                    }).map(e => e.outerHTML).join('');
+                }
+            }, {
+                name: '运行代码',
+                addStyle: 'background-color:#f7df1e;color: #000;',
+                func1() {
+                    this.group.attachment.innerHTML = '';
+                    $tm.addElms({
+                        arr: [{
+                            title: '代码', addStyle: 'border-bottom: 2px solid;', textContent: 'return 0',
+                            onkeydown(e) {
+                                if (!e.shiftKey && !e.ctrlKey && e.key == 'Enter') {
+                                    const res = (function (code) {
+                                        try { return new Function(code)(); }
+                                        catch (e) { return e; }
+                                    })(this.textContent);
+                                    console.log('输出', res);
+                                    boxGrp.$('code[title=输出]').textContent = '' + res;
+                                }
+                            },
+                        }, {
+                            title: '输出',
+                        }],
+                        defaults: {
+                            tag: 'code',
+                            contentEditable: true,
+                            style: `background-color: #eee;outline: none;width: 300px;
+                                padding: 5px;font-family: Consolas;`,
+                            init() { this.style.cssText += this.addStyle; }
                         }
-                    }, {
-                        name: '地址查找',
-                        apis: [
-                            ['amap', 'https://ditu.amap.com/search?query='],
-                            ['google', 'https://www.google.com/maps/search/'],
-                            ['bing', 'https://cn.bing.com/maps/?q='],
-                        ],
-                        func1() {
-                            let address = '';
-                            if (address = getSelection().toString() || prompt('请输入地址')) {
-                                let url = this.apis[prompt('请选择地图引擎\n' + this.apis.map((e, i) => `${i} - ${e[0]}`).join('\n')) || 0][1];
-                                open(url + encodeURI(address));
-                            }
-                        },
-                    }, {
-                        name: 'Bing AI',
-                        func1() {
-                            let text = getSelection().toString();
-                            $tm.urlFunc(/bing.com\/search/, e => { text = text || $('#sb_form_q').value });
-                            open(`https://www.bing.com/search?showconv=0&q=${text}&cc=us`);
-                        }
-                    }],
+                    }).forEach(e => this.group.attachment.appendChild(e));
+                },
+            }];
+            const buttonGrp = {
+                name: '按钮组',
+                addStyle: `width:100px;`,
+                childrens: $tm.addElms({
+                    arr: buttonArr,
                     defaults: {
                         tag: 'input', type: 'button',
-                        style: `padding:0;border:none;border-bottom:solid 2px #000;border-radius: 10px;
-                            width:100%;height:35px;transition: 300ms;
-                            font:bold 17px/20px caption;outline: none;
-                            background-color: #bbb;`,
+                        style: `margin-bottom: 3px;padding:0;
+                            border:1px solid;border-radius: 10px;
+                            width:100%;height:35px;
+                            font:lighter 17px/20px caption;outline: none;`,
                         onmousedown() {
                             let ismove = false;
                             this.onmousemove = function () { ismove = true };
                             this.onmouseup = function () {
                                 if (!ismove) {
-                                    if (!this.do) this.func1(), this.style.opacity = 1;
-                                    else this.func2(), this.style.opacity = 0.5;
+                                    if (this.did = !this.did) {
+                                        this.func1();
+                                        [...this.parentElement.$('input[type=button]', 1)].filter(e => e != this).forEach(e => e.did = false);
+                                    } else this.func2();
                                 }
                             };
                         },
                         func1() { },
-                        func2() { },
-                        init(func) {
+                        func2() { this.group.attachment.style.display = 'none'; },
+                        init() {
                             this.value = this.name;
                             this.title = this.name;
-                            func && func.call(this);
-                            return this;
+                            this.style.cssText += this.addStyle ?? '';
+                            Object.defineProperty(this, 'group', { get: function () { return this.parentElement?.parentElement } });
                         },
                     }
-                })
-            ));
+                }),
+                onmousedown(e) {
+                    const dx = parseFloat(window.getComputedStyle(boxGrp).left) - e.clientX,
+                        dy = parseFloat(window.getComputedStyle(boxGrp).top) - e.clientY;
+                    document.onmousemove = function (e) {
+                        boxGrp.style.left = dx + e.clientX + 'px';
+                        boxGrp.style.top = dy + e.clientY + 'px';
+                        _onmousemove?.call(this, e);
+                    }
+                    this.onmouseup = function () {
+                        document.onmousemove = _onmousemove;
+                        if (parseFloat(boxGrp.style.left) < 0) boxGrp.style.left = hiddLeft + 'px';
+                        if (parseFloat(boxGrp.style.top) < 0) boxGrp.style.top = '0px';
+                    }
+                },
+            };
+            const boxArr = [buttonGrp, {
+                name: '附件',
+                addStyle: `width: fit-content;height: fit-content;
+                    padding: 10px;border: 1px solid;
+                    background-color: #fff;color: #000;
+                    font-weight: normal;font-size: 16px;
+                    display: none;flex-direction: column;`,
+            }];
+            const boxGrp = $tm.addElmsGroup({
+                box: {
+                    id: '全局功能组',
+                    style: `position:fixed;top:0;left:${hiddLeft}px;z-index:${1e6};
+                        display:flex !important;
+                        border:none;border-radius:10px;margin:0px`,
+                    init() {
+                        //调用this.attachment时显示附件
+                        Object.defineProperty(this, 'attachment', {
+                            get: function () {
+                                const elm = this.$('div[title=附件]');
+                                elm.style.display = 'flex';
+                                return elm;
+                            }
+                        });
+                    },
+                },
+                arr: boxArr,
+                defaults: {
+                    style: `margin: 5px;border-radius: 10px;`,
+                    init() {
+                        this.title = this.name;
+                        this.style.cssText += this.addStyle ?? '';
+                        this.childrens?.forEach(e => this.appendChild(e));
+                    },
+                }
+            });
+            $tm.onloadFuncs.push(() => document.body.appendChild(boxGrp));
         }
     }();
 
@@ -142,24 +235,22 @@
             if (e) {
                 e.innerHTML = '<img src="https://th.bing.com/th/id/OIP.UurI9RUzgeluKtlkOyar_wAAAA">';
                 e.style.display = 'none';
-                e.remove();
+                // e.remove();
             }
         }
         //删除广告iframe内文档
-        if (self != top && location.href.includes('googleads')) {
+        if ((self !== top) && location.href.includes('googleads')) {
             console.log(self.name);
             self.open('https://th.bing.com/th/id/OIP.UurI9RUzgeluKtlkOyar_wAAAA', '_self');
             del(self.document.documentElement);
         };
-        if (typeof window.adsbygoogle != undefined)
-            window.adsbygoogle = null;
+        if (typeof window.adsbygoogle != undefined) window.adsbygoogle = null;
         //监听添加node
         const _appendChild = Node.prototype.appendChild;
         Node.prototype.appendChild = function (node) {
             if (node.tagName == 'DIV' && /广告/.test(node.innerHTML));
             else if (node.tagName == 'A' && /广告/.test(node.innerHTML));
-            else
-                return _appendChild.call(this, node);
+            else return _appendChild.call(this, node);
         };
         //DOM加载完后
         $tm.onloadFuncs.push(function () {
@@ -179,7 +270,9 @@
                         'ytd-ad-slot-renderer', //ytb
                         'Ads', //nico
                         'ads', //nico
-                        // '', //
+                        'baxia-dialog', //高德地图
+                        'sufei-dialog', //高德地图
+                        'app-download-panel', //高德地图
                     ],
                     id: [
                         'player-ads', //ytb
@@ -203,7 +296,7 @@
 
     //选择复制
     document.addEventListener('keydown', e => {
-        let text = getSelection().toString();
+        const text = getSelection().toString();
         if (text && e.ctrlKey && e.code === 'KeyC') {
             if (!navigator.clipboard) throw '不支持 navigator.clipboard';
             navigator.clipboard.writeText(text).then(e => $tm.tip('复制成功'));
@@ -217,13 +310,14 @@
             'link.csdn.net': null, //CSDN
             'link.juejin.cn': null, //掘金
             'c.pc.qq.com': function () {
-                let url = new URL(document.URL).searchParams.get('url');
+                const sp = new URL(document.URL).searchParams;
+                const url = sp.get('url') || sp.get('pfurl');
                 return url.includes('://') ? url : 'https://' + url;
             }, //QQ
         };
         for (let host in arr) {
             if (document.URL.includes(host)) {
-                location.href = (arr[host] && arr[host]()) || new URL(document.URL).searchParams.get('target');
+                location.href = (arr[host]?.()) || new URL(document.URL).searchParams.get('target');
             }
         }
     }();
@@ -231,7 +325,7 @@
     //推特左边栏清除滚动条
     $tm.urlFunc(/twitter.com/, () => {
         $('#react-root').nodeListener(e => {
-            let elm = $('header').$('.r-1wtj0ep');
+            const elm = $('header').$('.r-1wtj0ep');
             if (elm) elm.style.height = '735px';
         });
     });
@@ -239,22 +333,24 @@
     //bingAI界面优化
     $tm.urlFunc(/www.bing.com\/search\?/, () => {
         $('body').nodeListener(function () {
-            let main = $('cib-serp') && $('cib-serp').shadowRoot;
+            const main = $('cib-serp')?.shadowRoot;
             if (main) {
                 $('#id_h').style = 'right:calc(40px - calc(100vw - 100%))';
                 //左布局
-                let conversation = main.$('#cib-conversation-main').shadowRoot.children[0];
+                const conversation = main.$('#cib-conversation-main').shadowRoot.children[0];
                 conversation.insertBefore(conversation.$('.side-panel'), conversation.$('.scroller-positioner'));
-                let inputBox = main.$('#cib-action-bar-main');
+                const inputBox = main.$('#cib-action-bar-main');
                 inputBox.style.right = '0px';
                 //清空会话
-                let surface = main.$('#cib-conversation-main').children[0].shadowRoot.$('.surface');
-                let threads = surface.$('.threads');
-                surface.appendChild($tm.addElms([{
-                    tag: 'input', type: 'button',
-                    value: '清空会话', className: 'show-recent',
-                    onclick() { threads.$('cib-thread', 1).forEach(e => e.shadowRoot.$('.delete').click()); }
-                }])[0]);
+                const surface = main.$('#cib-conversation-main').children[0].shadowRoot.$('.surface');
+                const threads = surface.$('.threads');
+                surface.appendChild($tm.addElms({
+                    arr: [{
+                        tag: 'input', type: 'button',
+                        value: '清空会话', className: 'show-recent',
+                        onclick() { threads.$('cib-thread', 1).forEach(e => e.shadowRoot.$('.delete').click()); }
+                    }]
+                })[0]);
                 //历史会话
                 const height = 500;
                 surface.style.cssText = 'max-height: fit-content;';
@@ -274,9 +370,29 @@
 
     //mdn换成中文
     $tm.urlFunc(/developer.mozilla.org\/en-US/, () => {
-        let b = $('#languages-switcher-button');
+        const b = $('#languages-switcher-button');
         if (b) b.parentElement.nodeListener(() => {
             $('.language-menu button', 1).forEach(e => e.innerText.includes('简体') && e.click());
         }), b.click();
     });
+
+    //chatGPT
+    $tm.urlFunc(/chat.xeasy.me/, () => { $('#zsm').style.display = 'none'; });
+    $tm.urlFunc(/chat35.com/, () => {
+        $tm.useLibs('Cookies').then(() => {
+            Object.keys(Cookies.get()).forEach(k => Cookies.remove(k));
+        });
+    });
+    $tm.urlFunc(/.(gptchinese|chatgptbilibili)./, () => {
+        document.body.nodeListener(() => { if ($('#modals')) return $('#modals').style.display = 'none'; }, { childList: true });
+    });
+    $tm.urlFunc(/(chat2.jinshutuan.com|chatbot.theb.ai)/, () => {
+        $tm.onloadFuncs.push(() => {
+            $('textarea').focus();
+            $('.n-layout-scroll-container').style.cssText += 'max-width: 700px;';
+            const wrapper = $('#image-wrapper');
+            if (wrapper?.childElementCount === 1) wrapper.$('div').style.display = 'none';
+        });
+    });
+
 })();

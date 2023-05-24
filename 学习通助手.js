@@ -14,7 +14,7 @@
     //自动下一节
     $tm.urlFunc(/mycourse\/studentstudy/, () => {
         $tm.onloadFuncs.push(() => {
-            let lis = document.getElementsByClassName('posCatalog_select'); //右侧菜单所有元素
+            const lis = document.getElementsByClassName('posCatalog_select'); //右侧菜单所有元素
             let c = lis.length;
             //选择任务点
             for (let i = 0; i < lis.length; i++) {
@@ -23,8 +23,8 @@
             }
             lis[c].children[0].click();
             //自动向下
-            let stop = setInterval(() => {
-                let duration = parseInt(sessionStorage.getItem('dur')),
+            const stop = setInterval(() => {
+                const duration = parseInt(sessionStorage.getItem('dur')),
                     time = parseInt(sessionStorage.getItem('time'));
                 if ((duration && time >= duration) || lis[c].childElementCount != 3) {
                     //if(c<lis.length && lis[c].childElementCount!=3){
@@ -43,8 +43,8 @@
         // window.onerror = () => { return true } //隐藏报错
         let v;
         let duration = 0, n = 0;
-        let stop = setInterval(() => {
-            v = document.getElementById('video_html5_api');
+        const stop = setInterval(() => {
+            v = $('#video_html5_api');
             //播放
             v.play();
             //拉取进度条
@@ -54,7 +54,7 @@
             //静音
             v.volume = 0;
             //解锁进度条
-            let seekbar = videojs.getComponent("SeekBar");
+            const seekbar = videojs.getComponent("SeekBar");
             seekbar.prototype.handleMouseDown = function (c) { seekbar.prototype.__proto__.handleMouseDown.call(this, c); }
             seekbar.prototype.handleMouseMove = function (c) { seekbar.prototype.__proto__.handleMouseMove.call(this, c); }
             seekbar.prototype.handleMouseUp = function (c) { seekbar.prototype.__proto__.handleMouseUp.call(this, c); }
@@ -71,26 +71,14 @@
         //倍数控制
         setInterval(() => {
             sessionStorage.setItem('time', v.currentTime);
-            /* if(duration&&duration-10<=v.currentTime){
-                v.playbackRate=1;
-            }else{ v.playbackRate=4;} */
-        }, 5 * 1000)
+        }, 5 * 1000);
     });
 
     //阅读
     $tm.urlFunc(/ztnodedetailcontroller/, () => {
-        let li = document.getElementsByClassName('wh wh'), n = 0;
+        const data = $('script')[39].innerHTML.match(/data = {([\s\S]*?)height/)[1].replace(/[\t\n\s]*/g, '').split(',').slice(0, 2).map(e => { return e.split(':')[1].slice(1, -1) })
+        const ctid = data[1];
         setInterval(() => {
-            n++;
-            if (0 == n % 60) { //每60s滚动一次
-                let a = li[parseInt(Math.random() * li.length)];
-                if (a.tagName == 'A' && Math.random() < 0.1) a.click();
-                window.scrollTo(0, Math.random() * 10000);
-            }
-        }, 1000); //*/
-        let data = $('script')[39].innerHTML.match(/data = {([\s\S]*?)height/)[1].replace(/[\t\n\s]*/g, '').split(',').slice(0, 2).map(e => { return e.split(':')[1].slice(1, -1) })
-        setInterval(ctid => {
-            ctid = data[1];
             setSetting({
                 resourceID: data[0] + "," + ctid,
                 resourceType: "special",
@@ -145,22 +133,24 @@
 
     //作业
     $tm.urlFunc(/work\/dowork/, () => {
-        $('#submitForm').appendChild($tm.addElms([{
-            tag: 'input', type: 'button', value: '复制', style: `position: absolute;top: 0;`, onclick() {
-                let text = [...$(`#submitForm>div h2,.questionLi>*:not(.stem_answer,:empty)`, 1)].map(e => e.innerText.replace(/\n+/g, '\n')).join('');
-                navigator.clipboard.writeText(text).then(e => $tm.tip('复制成功'));
-            }
-        }])[0]);
+        $('#submitForm').appendChild($tm.addElms({
+            arr: [{
+                tag: 'input', type: 'button', value: '复制', style: `position: absolute;top: 0;`, onclick() {
+                    let text = [...$(`#submitForm>div h2,.questionLi>*:not(.stem_answer,:empty)`, 1)].map(e => e.innerText.replace(/\n+/g, '\n')).join('');
+                    navigator.clipboard.writeText(text).then(e => $tm.tip('复制成功'));
+                }
+            }]
+        })[0]);
     });
-	
-	//资料
-	$tm.urlFunc(/ueditorupload\/read/, () => {
-		$('.mainCon,#reader,#reader>iframe', 1).forEach(e=>e.style = 'width:90%;text-align:center;');
-		$('#reader>iframe').height = 1e4+'px';
-		$('#reader>iframe').nodeListener(function(){this.style.height = '';}, {attributes:true});
-	});
-	$tm.urlFunc(/ananas\/modules\/pdf/, () => {
-		$('#docContainer').style = 'height:100%;';
-		$('#docContainer').nodeListener(e=>{$('#img').style = 'height:100%;'});
-	});
+
+    //资料
+    $tm.urlFunc(/ueditorupload\/read/, () => {
+        $('.mainCon,#reader,#reader>iframe', 1).forEach(e => e.style = 'width:90%;text-align:center;');
+        $('#reader>iframe').height = 1e4 + 'px';
+        $('#reader>iframe').nodeListener(function () { this.style.height = ''; }, { attributes: true });
+    });
+    $tm.urlFunc(/ananas\/modules\/pdf/, () => {
+        $('#docContainer').style = 'height:100%;';
+        $('#docContainer').nodeListener(e => { $('#img').style = 'height:100%;' });
+    });
 })();
