@@ -149,60 +149,52 @@
                 },
             }];
             const buttonGrp = {
-                name: '按钮组',
-                addStyle: `width:100px;`,
-                childrens: $tm.addElms({
-                    arr: buttonArr,
-                    defaults: {
-                        tag: 'input', type: 'button',
-                        style: `margin-bottom: 3px;padding:0;border:1px solid;border-radius: 10px;
-                            width:100%;height:35px;background-color: field;
-                            font:lighter 17px/20px caption;outline: none;`,
-                        onmousedown() {
-                            let ismove = false;
-                            this.onmousemove = function () { ismove = true };
-                            this.onmouseup = function () {
-                                if (!ismove) {
-                                    if (this.did = !this.did) {
-                                        this.func1();
-                                        [...this.parentElement.$('input[type=button]', 1)].filter(e => e != this).forEach(e => e.did = false);
-                                    } else this.func2();
-                                }
-                            };
-                        },
-                        func1() { },
-                        func2() { this.group.attachment.style.display = 'none'; },
-                        init() {
-                            this.value = this.name;
-                            this.title = this.name;
-                            this.style.cssText += this.addStyle ?? '';
-                            Object.defineProperty(this, 'group', { get: function () { return this.parentElement?.parentElement } });
-                        },
-                    }
-                }),
-                onmousedown(e) {
-                    const dx = parseFloat(window.getComputedStyle(boxGrp).left) - e.clientX,
-                        dy = parseFloat(window.getComputedStyle(boxGrp).top) - e.clientY;
-                    document.onmousemove = function (e) {
-                        boxGrp.style.left = dx + e.clientX + 'px';
-                        boxGrp.style.top = dy + e.clientY + 'px';
-                        _onmousemove?.call(this, e);
-                    }
-                    this.onmouseup = function () {
-                        document.onmousemove = _onmousemove;
-                        if (parseFloat(boxGrp.style.left) < 0) boxGrp.style.left = hiddLeft + 'px';
-                        if (parseFloat(boxGrp.style.top) < 0) boxGrp.style.top = '0px';
-                    }
+                box: {
+                    name: '按钮组',
+                    addStyle: `width:100px;`,
+                    onmousedown(e) {
+                        const dx = parseFloat(window.getComputedStyle(boxGrp).left) - e.clientX,
+                            dy = parseFloat(window.getComputedStyle(boxGrp).top) - e.clientY;
+                        document.onmousemove = function (e) {
+                            boxGrp.style.left = dx + e.clientX + 'px';
+                            boxGrp.style.top = dy + e.clientY + 'px';
+                            _onmousemove?.call(this, e);
+                        }
+                        this.onmouseup = function () {
+                            document.onmousemove = _onmousemove;
+                            if (parseFloat(boxGrp.style.left) < 0) boxGrp.style.left = hiddLeft + 'px';
+                            if (parseFloat(boxGrp.style.top) < 0) boxGrp.style.top = '0px';
+                        }
+                    },
                 },
+                arr: buttonArr,
+                defaults: {
+                    tag: 'input', type: 'button',
+                    style: `margin-bottom: 3px;padding:0;border:1px solid;border-radius: 10px;
+                        width:100%;height:35px;background-color: field;
+                        font:lighter 17px/20px caption;outline: none;`,
+                    onmousedown() {
+                        let ismove = false;
+                        this.onmousemove = function () { ismove = true };
+                        this.onmouseup = function () {
+                            if (!ismove) {
+                                if (this.did = !this.did) {
+                                    this.func1();
+                                    [...this.parentElement.$('input[type=button]', 1)].filter(e => e != this).forEach(e => e.did = false);
+                                } else this.func2();
+                            }
+                        };
+                    },
+                    func1() { },
+                    func2() { this.group.attachment.style.display = 'none'; },
+                    init() {
+                        this.value = this.name;
+                        this.title = this.name;
+                        this.style.cssText += this.addStyle ?? '';
+                        Object.defineProperty(this, 'group', { get: function () { return this.parentElement?.parentElement } });
+                    },
+                }
             };
-            const boxArr = [buttonGrp, {
-                name: '附件',
-                addStyle: `width: fit-content;height: fit-content;
-                    padding: 10px;border: 1px solid;
-                    background-color: #fff;color: #000;
-                    font-weight: normal;font-size: 16px;
-                    display: none;flex-direction: column;`,
-            }];
             const boxGrp = $tm.addElmsGroup({
                 box: {
                     id: '全局功能组',
@@ -220,13 +212,19 @@
                         });
                     },
                 },
-                arr: boxArr,
+                arr: [buttonGrp, {
+                    name: '附件',
+                    addStyle: `width: fit-content;height: fit-content;
+                        padding: 10px;border: 1px solid;
+                        background-color: #fff;color: #000;
+                        font-weight: normal;font-size: 16px;
+                        display: none;flex-direction: column;`,
+                }],
                 defaults: {
                     style: `margin: 5px;border-radius: 10px;`,
                     init() {
                         this.title = this.name;
                         this.style.cssText += this.addStyle ?? '';
-                        this.childrens?.forEach(e => this.appendChild(e));
                     },
                 }
             });
@@ -304,12 +302,13 @@
 
     //选择复制
     document.addEventListener('keydown', e => {
-        const text = getSelection().toString();
-        if (text && e.ctrlKey && e.code === 'KeyC') {
+        if (e.ctrlKey && e.code === 'KeyC') {
             if (!navigator.clipboard) throw '不支持 navigator.clipboard';
+            const text = getSelection().toString();
+            if (!text) return;
             navigator.clipboard.writeText(text).then(e => $tm.tip('复制成功'));
         }
-    });
+    }, true);
 
     //直接跳转
     !async function () {
@@ -334,7 +333,7 @@
     $tm.urlFunc(/twitter.com/, () => {
         $('#react-root').nodeListener(e => {
             const elm = $('header').$('.r-1wtj0ep');
-            if (elm) elm.style.height = '735px';
+            if (elm) return elm.style.height = '735px';
         });
     });
 

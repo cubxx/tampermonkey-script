@@ -51,14 +51,20 @@
         addElms({ arr, defaults }) {
             defaults ??= { tag: 'div' };
             return arr.map(config => {
+                //迭代传参
+                if (config.box && config.arr) {
+                    config.box = Object.assign(defaults, config.box);
+                    return this.addElmsGroup(config);
+                }
+                //默认逻辑
                 const elm = Object.assign(document.createElement(config.tag ?? defaults.tag ?? 'div'), defaults, config);
                 elm.init?.();
                 return elm;
             });
         }
         addElmsGroup({ box, arr, defaults }) {
-            const container = $tm.addElms({ arr: [box] })[0];
-            $tm.addElms({ arr, defaults }).map(e => container.appendChild(e));
+            const container = this.addElms({ arr: [box] })[0];
+            this.addElms({ arr, defaults }).map(e => container.appendChild(e));
             return container;
         }
         async urlFunc(reg, func1, func2 = function () { }) {

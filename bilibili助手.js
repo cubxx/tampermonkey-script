@@ -115,7 +115,7 @@
         }, { childList: true });
         // 功能组
         if (!__INITIAL_STATE__.videoData) throw 'window.__INITIAL_STATE__.videoData 失效';
-        buttonGroup([{
+        const buttonGrp = buttonGroup([{
             name: '搬运',
             onclick() {
                 $tm.postMessage({
@@ -128,7 +128,9 @@
         }, {
             name: '截图',
             onclick() {
-                !function (elm) {
+                const _this = this;
+                !function () {
+                    const elm = $('.bpx-player-video-wrap>*');
                     switch (elm.tagName) {
                         case 'VIDEO': return Object.assign(document.createElement('canvas'), {
                             width: elm.videoWidth, height: elm.videoHeight,
@@ -137,8 +139,10 @@
                         case 'BWP-VIDEO': return elm.getRenderCanvas();
                         default: console.log('不认识的tag呢', elm.tagName);
                     }
-                }($('.bpx-player-video-wrap>*')).toBlob(blob => {
-                    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(e => vtip('已截图'));
+                }().toBlob(blob => {
+                    _this.mode ?
+                        $tm.addElms({ arr: [{ tag: 'a', download: `${prompt('文件名:') || '截图'}.png`, href: URL.createObjectURL(blob), }] })[0].click() :
+                        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(e => vtip('已截图'));
                 }, 'image/png');
             }
         }, {
@@ -157,43 +161,56 @@
         }, {
             name: '设置',
             onclick() {
-                const s = this.parentElement.$('div[title=设置面板]').style;
-                s.display = s.display ? '' : 'none';
-                this.parentElement.onmouseenter();
+                setPanel.style.display = setPanel.style.display ? '' : 'none';
+                buttonGrp.onmouseenter();
             },
-        }]).appendChild($tm.addElmsGroup({
+        }]);
+        const setPanel = $tm.addElmsGroup({
             box: { title: '设置面板', style: 'display: none;' },
             arr: [{
-                title: '播放速度',
-                childrens: [{
-                    step: '0.1', min: '0', max: '3', value: '1',
-                    oninput() {
-                        const v = +this.value;
-                        $('.bpx-player-video-wrap>*').playbackRate = v;
-                        this.parentElement.tip.innerHTML = v.toFixed(1);
-                    },
-                    ondblclick() { this.max = prompt('max:') || '3' },
+                box: { title: '播放速度', },
+                arr: [{
+                    box: {},
+                    arr: [{
+                        tag: 'input', type: 'range',
+                        step: '0.1', min: '0', max: '3', value: '1',
+                        inputHandler() {
+                            const v = +this.value;
+                            $('.bpx-player-video-wrap>*').playbackRate = v;
+                            return v.toFixed(1);
+                        },
+                        ondblclick() { this.max = prompt('max:') || '3' },
+                    }],
+                }]
+            }, {
+                box: { title: '截图设置', },
+                arr: [{
+                    box: { style: 'display: flex;justify-content: space-evenly;' },
+                    arr: [
+                        { value: '剪贴板', mode: 0, checked: true },
+                        { value: '本地', mode: 1 }
+                    ],
+                    defaults: {
+                        tag: 'input', type: 'radio', name: 'capture',
+                        inputHandler() {
+                            buttonGrp.$('input[title=截图]').mode = this.mode;
+                            return this.value;
+                        }
+                    }
                 }]
             }],
             defaults: {
-                style: 'display: flex;flex-direction: column;padding: 5px;',
+                style: 'display: flex;flex-direction: column;padding: 5px;border-top: 1px dashed;',
                 init() {
-                    $tm.addElms({
-                        arr: [{
-                            tag: 'label',
-                            style: 'display: flex;justify-content: space-between;',
-                            innerHTML: this.title + '<code></code>',
-                        }, ...this.childrens],
-                        defaults: {
-                            tag: 'input', type: 'range',
-                            style: 'outline: none;',
-                        }
-                    }).forEach(e => this.appendChild(e));
-                    this.tip = this.$('label>code');
+                    this.innerHTML = `<label style="display: flex;justify-content: space-between;">${this.title}<code></code></label>${this.innerHTML}`;
                 }
             }
-        }));
+        });
+        setPanel.addEventListener('input', e => { e.target.parentElement.parentElement.$('label>code').innerHTML = e.target.inputHandler?.() ?? '空'; });
+        buttonGrp.appendChild(setPanel);
     });
+
+    //番剧
     $tm.urlFunc(/www.bilibili.com\/bangumi/, () => {
         $('#bilibili-player').nodeListener(function () { this.$('.bpx-player-toast-wrap').style.display = 'none' });
         buttonGroup([{
@@ -215,14 +232,12 @@
         }]);
     });
 
-    //动态
-    $tm.urlFunc(/t.bilibili.com/, () => {
-        //选中动态文字不跳转
-        window.addEventListener('click', e => {
-            if (e.target.parentElement.className != 'bili-rich-text__content') return;
-            e.stopPropagation();
-            e.preventDefault();
-        }, true);
-    });
+    //选中动态文字不跳转
+    window.addEventListener('click', e => {
+        if (!e.target.parentElement.className.includes('bili-rich-text')) return;
+        // e.stopImmediatePropagation();
+        e.stopPropagation();
+        // e.preventDefault();
+    }, true);
 
 })();
