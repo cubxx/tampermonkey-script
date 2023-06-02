@@ -10,10 +10,10 @@
     Object.assign(Node.prototype, {
         $,
         nodeListener(func, config) {
-            let stop = false;
-            new MutationObserver((mutationList, observer) => {
-                if (!stop) stop = func.call(this, mutationList, observer);
-            }).observe(this, config || {
+            const MO = new MutationObserver((mutationList, observer) => {
+                func.call(this, mutationList, observer) && MO.disconnect();
+            });
+            MO.observe(this, config || {
                 childList: true,
                 subtree: true,
                 attributes: false,

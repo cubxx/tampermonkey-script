@@ -67,37 +67,38 @@
         }
     }
     function buttonGroup(configs) {
-        return $tm.onloadFuncs.push(e => $('#bilibili-player').insertBefore(
-            $tm.addElmsGroup({
-                box: {
-                    id: '视频功能组', tag: 'div',
-                    style: `position: absolute;left: -10px;top: 0px;z-index: 0;
-                        display: flex;flex-direction: column;align-items: center;
+        const group = $tm.addElmsGroup({
+            box: {
+                id: '视频功能组', tag: 'div',
+                style: `position: absolute;left: -10px;top: 0px;z-index: 0;
+                        display: flex;flex-direction: column;align-items: stretch;
                         border-radius: 5px;border: 1px solid #888;
                         opacity: 0.4;transition: 300ms;`,
-                    onmouseenter() { this.style.opacity = '1'; this.style.left = '-' + getComputedStyle(this).width },
-                    onmouseleave() { this.style.opacity = '0.4'; this.style.left = '-10px' },
-                },
-                arr: configs,
-                defaults: {
-                    tag: 'input', type: 'button',
-                    style: `border-radius: 5px;border: none;border-bottom: 1px solid #aaa;padding: 5px 10px;
+                onmouseenter() { this.style.opacity = '1'; this.style.left = '-' + getComputedStyle(this).width },
+                onmouseleave() { this.style.opacity = '0.4'; this.style.left = '-10px' },
+            },
+            arr: configs,
+            defaults: {
+                tag: 'input', type: 'button',
+                style: `border-radius: 5px;border: none;border-bottom: 1px solid #aaa;padding: 5px 10px;
                         background-color: #eee;font-size: 15px;outline: none;`,
-                    init() {
-                        this.name ??= '';
-                        this.title ||= this.name;
-                        this.value ||= this.name;
-                        this.style.cssText += this.addStyle;
-                        return this
-                    }
+                init() {
+                    this.name ??= '';
+                    this.title ||= this.name;
+                    this.value ||= this.name;
+                    this.style.cssText += this.addStyle;
+                    return this
                 }
-            }), $('#bilibili-player').children[0]));
+            }
+        });
+        $tm.onloadFuncs.push(e => $('#bilibili-player').insertBefore(group, $('#bilibili-player').children[0]));
+        return group;
     }
     $tm.urlFunc(/www.bilibili.com\/video/, () => {
         // 页面内跳转
         $('.bpx-player-loading-panel').nodeListener(delAds, { childList: true, subtree: true, attributes: true });
         // sm号换为nico视频
-        $('#v_desc').nodeListener(function () {
+        $('#v_desc')?.nodeListener(function () {
             this.$('a', 1).forEach(a => {
                 if (a.innerText.slice(0, 2) == 'sm') a.setValue('href', `https://www.nicovideo.jp/watch/${a.innerText}`);
             });
@@ -154,16 +155,44 @@
                 navigator.clipboard.writeText(location.href).then(e => { open(arr[Math.floor(Math.random() * arr.length)]) })
             },
         }, {
-            name: '播放速度', tag: 'i', innerText: '1',
-        }, {
-            type: 'range',
-            step: '0.1', min: '0', max: '3', value: '1',
-            addStyle: '-webkit-appearance: slider-vertical;width: 20px;padding:0px;',
-            oninput() {
-                $('.bpx-player-video-wrap>*').playbackRate = +this.value;
-                this.previousElementSibling.innerText = this.value;
+            name: '设置',
+            onclick() {
+                const s = this.parentElement.$('div[title=设置面板]').style;
+                s.display = s.display ? '' : 'none';
+                this.parentElement.onmouseenter();
             },
-        }]);
+        }]).appendChild($tm.addElmsGroup({
+            box: { title: '设置面板', style: 'display: none;' },
+            arr: [{
+                title: '播放速度',
+                childrens: [{
+                    step: '0.1', min: '0', max: '3', value: '1',
+                    oninput() {
+                        const v = +this.value;
+                        $('.bpx-player-video-wrap>*').playbackRate = v;
+                        this.parentElement.tip.innerHTML = v.toFixed(1);
+                    },
+                    ondblclick() { this.max = prompt('max:') || '3' },
+                }]
+            }],
+            defaults: {
+                style: 'display: flex;flex-direction: column;padding: 5px;',
+                init() {
+                    $tm.addElms({
+                        arr: [{
+                            tag: 'label',
+                            style: 'display: flex;justify-content: space-between;',
+                            innerHTML: this.title + '<code></code>',
+                        }, ...this.childrens],
+                        defaults: {
+                            tag: 'input', type: 'range',
+                            style: 'outline: none;',
+                        }
+                    }).forEach(e => this.appendChild(e));
+                    this.tip = this.$('label>code');
+                }
+            }
+        }));
     });
     $tm.urlFunc(/www.bilibili.com\/bangumi/, () => {
         $('#bilibili-player').nodeListener(function () { this.$('.bpx-player-toast-wrap').style.display = 'none' });
@@ -184,6 +213,16 @@
                 }, 'image/png');
             }
         }]);
+    });
+
+    //动态
+    $tm.urlFunc(/t.bilibili.com/, () => {
+        //选中动态文字不跳转
+        window.addEventListener('click', e => {
+            if (e.target.parentElement.className != 'bili-rich-text__content') return;
+            e.stopPropagation();
+            e.preventDefault();
+        }, true);
     });
 
 })();
