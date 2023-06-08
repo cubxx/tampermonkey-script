@@ -49,16 +49,15 @@
     });
 
     // 视频功能
-    function vtip(text, id) {
-        id ??= text;
-        const elm = $(`#tip_${id}`);
+    function vtip(text) {
+        const elm = [...$('.bpx-player-tooltip-area .bpx-player-tooltip-title', 1)].find(e => e.innerText == text);
         if (elm) {
             (typeof elm.stop == 'number') && clearTimeout(elm.stop);
             elm.del();
         } else {
             $('.bpx-player-tooltip-area').appendChild($tm.addElms({
                 arr: [{
-                    tag: 'div', className: 'bpx-player-tooltip-item', id: `tip_${id}`,
+                    tag: 'div', className: 'bpx-player-tooltip-item',
                     style: `position: relative;top: -310px;margin: auto;visibility: visible;opacity: 1;`,
                     innerHTML: `<div class="bpx-player-tooltip-title">${text}</div>`,
                     del() { this.stop = setTimeout(() => this.remove(), 2.5e3); },
@@ -69,34 +68,174 @@
     function buttonGroup(configs) {
         const group = $tm.addElmsGroup({
             box: {
-                id: '视频功能组', tag: 'div',
+                id: '视频功能组',
                 style: `position: absolute;left: -10px;top: 0px;z-index: 0;
                         display: flex;flex-direction: column;align-items: stretch;
                         border-radius: 5px;border: 1px solid #888;
                         opacity: 0.4;transition: 300ms;`,
-                onmouseenter() { this.style.opacity = '1'; this.style.left = '-' + getComputedStyle(this).width },
-                onmouseleave() { this.style.opacity = '0.4'; this.style.left = '-10px' },
-            },
-            arr: configs,
-            defaults: {
-                tag: 'input', type: 'button',
-                style: `border-radius: 5px;border: none;border-bottom: 1px solid #aaa;padding: 5px 10px;
-                        background-color: #eee;font-size: 15px;outline: none;`,
-                init() {
-                    this.name ??= '';
-                    this.title ||= this.name;
-                    this.value ||= this.name;
-                    this.style.cssText += this.addStyle;
-                    return this
+                onmouseenter() { this.style.opacity = '1'; this.style.left = '-' + getComputedStyle(this).width; },
+                onmouseleave() { this.style.opacity = '0.4'; this.style.left = '-10px'; },
+                update() {
+                    this.children.forEach(e => {
+                        const btn = e.$('input');
+                        if (!btn.onclick) btn.style.backgroundColor = '#eff';
+                        btn.panel = e.panel = e.$('div[title=参数面板]');
+                        btn.panel.btn = btn;
+                        btn.update?.();
+                    });
+                },
+                debug() {
+                    this.onmouseenter();
+                    this.onmouseleave = null;
                 }
+            },
+            arr: configs.map(e => {
+                //参数面板
+                e.panel ??= {};
+                Object.assign(e.panel.box ?? e.panel, {
+                    title: '参数面板',
+                    init() { this.style.display = 'none'; }
+                });
+                //功能块
+                return {
+                    box: {},
+                    arr: [Object.assign({
+                        tag: 'input', type: 'button',
+                        style: `border-radius: 5px;border: none;border-bottom: 1px solid #aaa;padding: 5px 10px;
+                            background-color: #eee;font-size: 15px;outline: none;`,
+                    }, e), e.panel],
+                    defaults: {
+                        init() {
+                            this.name ??= '';
+                            this.title ||= this.name;
+                            this.value ||= this.name;
+                            this.style.cssText += this.addStyle ?? '';
+                        }
+                    }
+                }
+            }),
+            defaults: {
+                style: 'display: flex;flex-direction: column;',
+                oncontextmenu(e) {
+                    const style = this.panel.style;
+                    style.display = style.display == 'none' ? 'flex' : 'none';
+                    this.parentElement.onmouseenter();
+                    e.preventDefault();
+                },
             }
         });
-        $tm.onloadFuncs.push(e => $('#bilibili-player').insertBefore(group, $('#bilibili-player').children[0]));
+        $tm.onloadFuncs.push(e => {
+            $('#bilibili-player').insertBefore(group, $('#bilibili-player').children[0]);
+            // group.debug();
+        });
         return group;
     }
+    const globalBtnArr = [{
+        name: '截图',
+        onclick() {
+            const _this = this;
+            !function () {
+                const elm = $('.bpx-player-video-wrap>*');
+                switch (elm.tagName) {
+                    case 'VIDEO': return Object.assign(document.createElement('canvas'), {
+                        width: elm.videoWidth,
+                        height: elm.videoHeight,
+                        init() {
+                            this.getContext('2d').drawImage(elm, 0, 0);
+                            return this;
+                        }
+                    }).init();
+                    case 'BWP-VIDEO': return elm.getRenderCanvas();
+                }
+            }().toBlob(blob => {
+                [..._this.panel.$('input[type=radio]', 1)].find(e => e.checked).value == '本地' ?
+                    $tm.download(blob) :
+                    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(e => vtip('已截图'));
+            }, 'image/png');
+        },
+        panel: {
+            box: { style: 'justify-content: space-evenly;' },
+            arr: [{ innerHTML: '剪切板', }, { innerHTML: '本地', }],
+            defaults: {
+                tag: 'label',
+                style: 'padding: 5px;',
+                init() { this.innerHTML += `<input type="radio" name="capture" value="${this.innerHTML}" ${this.innerHTML == '剪切板' ? 'checked' : ''}>`; }
+            }
+        }
+    }, {
+        name: '录制',
+        onclick() {
+            const actions = {
+                'inactive': { fn: 'start', text: '●', color: 'red' },
+                'recording': { fn: 'pause', text: '▶', color: 'blue' },
+                'paused': { fn: 'resume', text: '●', color: 'red' },
+            }
+            const state = actions[this.recorder.state];
+            this.recorder[state.fn]();
+            this.value = state.text;
+            this.style.color = state.color;
+        },
+        ondblclick() {
+            this.recorder.stop();
+            this.value = '录制';
+            this.style.color = '';
+            this.recorder.ondataavailable = ({ data: blob }) => {
+                if (this.panel.$('input[type=checkbox]').checked) {
+                    $tm.useLib('FFmpeg').then(async () => {
+                        const ffmpeg = FFmpeg.createFFmpeg({});
+                        await ffmpeg.load();
+                        vtip('开始转换格式mp4');
+                        timer.start(); //开始计时
+                        ffmpeg.FS('writeFile', 'input', new Uint8Array(await blob.arrayBuffer()));
+                        await ffmpeg.run('-i', 'input', '-c:v', 'libx264', '-c:a', 'aac', '-preset', 'fast', '-r', '30', '-f', 'mp4', 'output.mp4');
+                        timer.stop(); //停止计时
+                        return ffmpeg.FS('readFile', 'output.mp4').buffer;
+                    }).then(buffer => {
+                        $tm.download(new Blob([buffer], { type: 'video/mp4' }), null, '片段');
+                    }).catch(console.error);
+                } else $tm.download(blob, null, '片段');
+            };
+        },
+        panel: {
+            box: {
+                style: 'padding: 5px;flex-direction: column;',
+            },
+            arr: [{
+                tag: 'cite',
+            }, {
+                box: {
+                    tag: 'label',
+                    innerHTML: '是否转化格式',
+                },
+                arr: [{
+                    tag: 'input',
+                    type: 'checkbox',
+                    checked: true,
+                }]
+            }]
+        },
+        update() {
+            const elm = $('.bpx-player-video-wrap>*');
+            this.recorder = new MediaRecorder((function () {
+                switch (elm.tagName) {
+                    case 'VIDEO': return elm;
+                    case 'BWP-VIDEO': return elm.getRenderCanvas();
+                }
+            })().captureStream());
+            this.panel.$('cite').innerHTML = elm.tagName;
+        }
+    }];
+    const timer = new $tm.timer({
+        log(ts) { vtip(`正在运行 ${parseInt(ts / 1e3)}s`); }
+    });
     $tm.urlFunc(/www.bilibili.com\/video/, () => {
         // 页面内跳转
-        $('.bpx-player-loading-panel').nodeListener(delAds, { childList: true, subtree: true, attributes: true });
+        $('.bpx-player-video-wrap').nodeListener(function () {
+            setTimeout(e => {
+                btnGrp.update();
+                if (document.URL.includes(vd().bvid)) vtip('功能组已更新');
+            }, 1000);
+        }, { childList: true, subtree: true, attributes: true });
         // sm号换为nico视频
         $('#v_desc')?.nodeListener(function () {
             this.$('a', 1).forEach(a => {
@@ -113,131 +252,203 @@
                 clarity.$(`li[data-value="${[16, 64][+light.checked]}"]`).click(); //720p/360p
             };
         }, { childList: true });
+        // 屏蔽
+        $('.bpx-player-cmd-dm-wrap').style.display = 'none';
         // 功能组
         if (!__INITIAL_STATE__.videoData) throw 'window.__INITIAL_STATE__.videoData 失效';
-        const buttonGrp = buttonGroup([{
+        const vd = () => __INITIAL_STATE__.videoData;
+        const btnGrp = buttonGroup([...globalBtnArr, {
+            name: '封面',
+            onclick() { open(vd().pic) },
+            panel: {
+                box: {},
+                arr: [{
+                    tag: 'img',
+                }]
+            },
+            update() { this.panel.$('img').src = vd().pic + '@150w_150h.jpg'; }
+        }, {
+            name: '下载',
+            onclick() {
+                // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/videostream_url.html
+                const obj = {}
+                this.parentElement.$('select', 1).forEach(e => obj[e.name] = +e.value);
+                Object.assign(this.params, obj);
+                console.log('流地址请求参数', this.params);
+                fetch('https://api.bilibili.com/x/player/playurl?' + new URLSearchParams(this.params).toString(), { credentials: 'include', })
+                    .then(res => res.json())
+                    .then(({ data, message }) => {
+                        // vtip('成功获取流地址');
+                        const { durl, dash } = data;
+                        const base = [vd().title, vd().owner.name, null].join('-');
+                        if (durl) {
+                            if (data.quality == this.params.qn) {
+                                request(durl[0].url).then(blob => $tm.download(blob, 'mp4', base));
+                            } else alert('mp4格式仅支持以下清晰度:\n' + data.accept_description.join('\n'));
+                        } else {
+                            const vUrl = dash.video.find(e => e.id == this.params.qn && e.codecid == this.params.codecid)?.baseUrl,
+                                aUrl = dash.audio.find(e => e.id == this.params.audio_qn)?.baseUrl;
+                            //是否转换格式
+                            if (this.panel.$('input[type=checkbox]').checked) {
+                                $tm.useLib('FFmpeg').then(async () => {
+                                    const ffmpeg = FFmpeg.createFFmpeg({});
+                                    await ffmpeg.load();
+                                    vtip('FFmpeg加载完毕');
+                                    //下载不同内容
+                                    switch (this.params.content) {
+                                        case 0: {
+                                            Promise.all([
+                                                request(vUrl, 'video'),
+                                                request(aUrl, 'audio'),
+                                            ]).then(async ([vBlob, aBlob]) => {
+                                                vtip('开始合并音视频');
+                                                timer.start();
+                                                ffmpeg.FS('writeFile', 'video.m4s', new Uint8Array(await vBlob.arrayBuffer()));
+                                                ffmpeg.FS('writeFile', 'audio.m4s', new Uint8Array(await aBlob.arrayBuffer()));
+                                                await ffmpeg.run('-i', 'video.m4s', '-i', 'audio.m4s', '-c:v', 'copy', '-c:a', 'copy', '-f', 'mp4', 'output.mp4');
+                                                timer.stop();
+                                                return ffmpeg.FS('readFile', 'output.mp4').buffer;
+                                            }).then(buffer => {
+                                                $tm.download(new Blob([buffer], { type: 'video/mp4' }), 'mp4', base);
+                                            }).catch(errorFn); break;
+                                        }
+                                        case 1: convertFormat(request(vUrl, 'video'), 'video/mp4', 'mp4'); break;
+                                        case 2: convertFormat(request(aUrl, 'audio'), 'audio/mpeg', 'mp3'); break;
+                                    }
+                                    function convertFormat(promise, MIMEtype, newFormat, oldFormat = 'm4s') {
+                                        const args = MIMEtype.includes('audio') ? ['-vn', '-acodec', 'libmp3lame'] : ['-an', '-c', 'copy'];
+                                        promise.then(async blob => {
+                                            vtip('开始转换格式' + newFormat);
+                                            timer.start();
+                                            ffmpeg.FS('writeFile', 'input.' + oldFormat, new Uint8Array(await blob.arrayBuffer()));
+                                            await ffmpeg.run('-i', 'input.' + oldFormat, ...args, '-f', newFormat, 'output.' + newFormat);
+                                            timer.stop();
+                                            return ffmpeg.FS('readFile', 'output.' + newFormat).buffer;
+                                        }).then(buffer => {
+                                            $tm.download(new Blob([buffer], { type: MIMEtype }), newFormat, base);
+                                        }).catch(errorFn);
+                                    }
+                                });
+                            } else {
+                                switch (this.params.content) {
+                                    case 0: {
+                                        Promise.all([
+                                            request(vUrl, 'video'),
+                                            request(aUrl, 'audio'),
+                                        ]).then(([vBlob, aBlob]) => {
+                                            $tm.download(vBlob, 'm4s', base + 'video');
+                                            $tm.download(aBlob, 'm4s', base + 'audio');
+                                        }).catch(errorFn); break;
+                                    }
+                                    case 1: request(vUrl, 'video').then(blob => $tm.download(blob, 'm4s', base + 'video')).catch(errorFn); break;
+                                    case 2: request(aUrl, 'audio').then(blob => $tm.download(blob, 'm4s', base + 'audio')).catch(errorFn); break;
+                                }
+                            }
+                        }
+                    }).catch(errorFn);
+                async function request(url, sign = '') {
+                    if (!url) return Promise.reject('找不到流地址\n' + sign);
+                    vtip('开始请求流地址' + sign);
+                    timer.start();
+                    const res = await fetch(url);
+                    const blob = await res.blob();
+                    timer.stop();
+                    return blob;
+                }
+                function errorFn(e) {
+                    console.error(e);
+                    alert(e);
+                }
+            },
+            panel: {
+                box: { style: 'flex-direction: column;padding: 5px;' },
+                arr: [{
+                    innerHTML: '视频格式', title: '', name: 'fnval', arr: [['mp4', 1], ['m4s', 16, true]]
+                }, {
+                    innerHTML: '清晰度', title: '', name: 'qn', arr: [['240p', 6], ['360p', 16], ['480p', 32], ['720p', 64, true], ['720p60', 74], ['1080p', 80], ['1080p+', 112], ['1080p60', 116], ['4k', 120], ['HDR', 125], ['杜比视界', 126], ['8k', 127]]
+                }, {
+                    innerHTML: '视频编码', title: '仅在m4s格式下有效', name: 'codecid', arr: [['AVC', 7], ['HEVC', 12], ['AV1', 13]]
+                }, {
+                    innerHTML: '音频音质', title: '仅在m4s格式下有效', name: 'audio_qn', arr: [['64k', 30216], ['132k', 30232, true], ['192k', 30280], ['杜比全景声', 30250], ['Hi-Res无损', 30251]]
+                }, {
+                    innerHTML: '下载内容', title: '仅在m4s格式下有效', name: 'content', arr: [['全部', 0, true], ['视频', 1], ['音频', 2]]
+                }].map(({ innerHTML, title, name, arr }) => {
+                    return {
+                        box: { title, style: 'display: flex;justify-content: space-between;margin-top: 5px;' },
+                        arr: [{
+                            tag: 'label', innerHTML, style: 'padding-right: 5px;',
+                        }, {
+                            box: { tag: 'select', name, style: 'outline: none;width: 50px;', },
+                            arr: arr.map(([innerHTML, value, selected]) => { return { innerHTML, value, selected } }),
+                            defaults: { tag: 'option', }
+                        }],
+                    }
+                }).concat({
+                    box: {
+                        tag: 'label',
+                        innerHTML: '是否转化格式',
+                    },
+                    arr: [{
+                        tag: 'input',
+                        type: 'checkbox',
+                        checked: true,
+                    }]
+                })
+            },
+            update() {
+                this.params = {
+                    cid: vd().cid,
+                    bvid: vd().bvid,
+                    qn: 64, //清晰度 80:1080,64:720,16:360
+                    fnval: 16, //视频格式 1:mp4,16:dash
+                };
+            },
+        }, {
+            name: '倍速',
+            panel: {
+                box: {},
+                arr: [{
+                    tag: 'input', type: 'range',
+                    step: '0.1', min: '0', max: '3', value: '1',
+                    style: 'margin: 5px;width: -webkit-fill-available;',
+                    oninput() {
+                        const v = +this.value;
+                        $('.bpx-player-video-wrap>*').playbackRate = v;
+                        this.parentElement.btn.value = v.toFixed(1) + 'x';
+                    },
+                    ondblclick() { this.max = prompt('max:') || '3' },
+                }],
+            }
+        }, , {
             name: '搬运',
             onclick() {
                 $tm.postMessage({
                     url: 'https://www.mfuns1.cn',
-                    data: __INITIAL_STATE__.videoData.bvid,
+                    data: vd().bvid,
                     signal: 'OK',
                     func(d) { vtip(`发送${d}`) },
                 }).then(e => vtip('停止发送'));
             }
-        }, {
-            name: '截图',
-            onclick() {
-                const _this = this;
-                !function () {
-                    const elm = $('.bpx-player-video-wrap>*');
-                    switch (elm.tagName) {
-                        case 'VIDEO': return Object.assign(document.createElement('canvas'), {
-                            width: elm.videoWidth, height: elm.videoHeight,
-                            init() { this.getContext('2d').drawImage(elm, 0, 0); return this }
-                        }).init();
-                        case 'BWP-VIDEO': return elm.getRenderCanvas();
-                        default: console.log('不认识的tag呢', elm.tagName);
-                    }
-                }().toBlob(blob => {
-                    _this.mode ?
-                        $tm.addElms({ arr: [{ tag: 'a', download: `${prompt('文件名:') || '截图'}.png`, href: URL.createObjectURL(blob), }] })[0].click() :
-                        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(e => vtip('已截图'));
-                }, 'image/png');
-            }
-        }, {
-            name: '封面',
-            onclick() { open(__INITIAL_STATE__.videoData.pic) },
-        }, {
-            name: '下载',
-            onclick() {
-                const arr = [
-                    'https://bilibili.iiilab.com/?hao.su',
-                    'https://www.yiuios.com/tool/bilibili',
-                    'https://xbeibeix.com/api/bilibili/',
-                ];
-                navigator.clipboard.writeText(location.href).then(e => { open(arr[Math.floor(Math.random() * arr.length)]) })
-            },
-        }, {
-            name: '设置',
-            onclick() {
-                setPanel.style.display = setPanel.style.display ? '' : 'none';
-                buttonGrp.onmouseenter();
-            },
         }]);
-        const setPanel = $tm.addElmsGroup({
-            box: { title: '设置面板', style: 'display: none;' },
-            arr: [{
-                box: { title: '播放速度', },
-                arr: [{
-                    box: {},
-                    arr: [{
-                        tag: 'input', type: 'range',
-                        step: '0.1', min: '0', max: '3', value: '1',
-                        inputHandler() {
-                            const v = +this.value;
-                            $('.bpx-player-video-wrap>*').playbackRate = v;
-                            return v.toFixed(1);
-                        },
-                        ondblclick() { this.max = prompt('max:') || '3' },
-                    }],
-                }]
-            }, {
-                box: { title: '截图设置', },
-                arr: [{
-                    box: { style: 'display: flex;justify-content: space-evenly;' },
-                    arr: [
-                        { value: '剪贴板', mode: 0, checked: true },
-                        { value: '本地', mode: 1 }
-                    ],
-                    defaults: {
-                        tag: 'input', type: 'radio', name: 'capture',
-                        inputHandler() {
-                            buttonGrp.$('input[title=截图]').mode = this.mode;
-                            return this.value;
-                        }
-                    }
-                }]
-            }],
-            defaults: {
-                style: 'display: flex;flex-direction: column;padding: 5px;border-top: 1px dashed;',
-                init() {
-                    this.innerHTML = `<label style="display: flex;justify-content: space-between;">${this.title}<code></code></label>${this.innerHTML}`;
-                }
-            }
-        });
-        setPanel.addEventListener('input', e => { e.target.parentElement.parentElement.$('label>code').innerHTML = e.target.inputHandler?.() ?? '空'; });
-        buttonGrp.appendChild(setPanel);
+        btnGrp.update();
     });
 
     //番剧
     $tm.urlFunc(/www.bilibili.com\/bangumi/, () => {
-        $('#bilibili-player').nodeListener(function () { this.$('.bpx-player-toast-wrap').style.display = 'none' });
-        buttonGroup([{
-            name: '截图',
-            onclick() {
-                (function (elm) {
-                    switch (elm.tagName) {
-                        case 'VIDEO': return Object.assign(document.createElement('canvas'), {
-                            width: elm.videoWidth, height: elm.videoHeight,
-                            init() { this.getContext('2d').drawImage(elm, 0, 0); return this }
-                        }).init();
-                        case 'BWP-VIDEO': return elm.getRenderCanvas();
-                        default: console.log('不认识的tag呢', elm.tagName)
-                    }
-                })($('.bpx-player-video-wrap>*')).toBlob(blob => {
-                    navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(e => vtip('已截图'));
-                }, 'image/png');
-            }
-        }]);
+        $('#bilibili-player').nodeListener(function () { return this.$('.bpx-player-toast-wrap').style.display = 'none'; });
+        const btnGrp = buttonGroup(globalBtnArr);
     });
 
     //选中动态文字不跳转
     window.addEventListener('click', e => {
-        if (!e.target.parentElement.className.includes('bili-rich-text')) return;
-        // e.stopImmediatePropagation();
-        e.stopPropagation();
-        // e.preventDefault();
+        const elm = e.target;
+        const match = 'class="bili-rich-text__content';
+        if ((elm.tagName == 'SPAN' && elm.parentElement.outerHTML.includes(match))
+            || elm.outerHTML.includes(match)) {
+            // e.stopImmediatePropagation();
+            e.stopPropagation();
+            // e.preventDefault();
+        }
     }, true);
 
 })();

@@ -32,9 +32,8 @@
                 }
             }
             //功能组
-            const _onmousemove = document.onmousemove,
-                hiddLeft = -98;
-            const buttonArr = [{
+            const hiddLeft = -98;
+            const btnArrInfo = [{
                 name: '设计模式',
                 func1() { document.designMode = 'on', this.style.backgroundColor = '#bbb' },
                 func2() { document.designMode = 'off', this.style.backgroundColor = '' },
@@ -129,62 +128,30 @@
                                 console.log('code输出', res);
                                 boxGrp.$('code[title=输出]').textContent = '' + res;
                             },
-                            onpaste(e) {
-                                e.preventDefault();
-                                this.textContent += e.clipboardData.getData('text/plain'); //纯文本
-                            },
                         }, {
                             title: '输出',
                         }],
                         defaults: {
                             tag: 'code',
-                            contentEditable: true,
-                            style: `background-color: #eee;outline: none;
-                                padding: 5px;font-family: Consolas;width: 300px;`,
-                            init() {
-                                this.style.cssText += this.addStyle;
-                            }
+                            contentEditable: 'plaintext-only',
+                            style: `background-color: #eee;outline: none;padding: 5px;width: 300px;cursor: text;
+                                font-family: Consolas;font-size: inherit;color: inherit;`,
+                            init() { this.style.cssText += this.addStyle; }
                         }
                     }).forEach(e => this.group.attachment.appendChild(e));
                 },
             }];
-            const buttonGrp = {
+            const btnGrpInfo = {
                 box: {
                     name: '按钮组',
                     addStyle: `width:100px;`,
-                    onmousedown(e) {
-                        const dx = parseFloat(window.getComputedStyle(boxGrp).left) - e.clientX,
-                            dy = parseFloat(window.getComputedStyle(boxGrp).top) - e.clientY;
-                        document.onmousemove = function (e) {
-                            boxGrp.style.left = dx + e.clientX + 'px';
-                            boxGrp.style.top = dy + e.clientY + 'px';
-                            _onmousemove?.call(this, e);
-                        }
-                        this.onmouseup = function () {
-                            document.onmousemove = _onmousemove;
-                            if (parseFloat(boxGrp.style.left) < 0) boxGrp.style.left = hiddLeft + 'px';
-                            if (parseFloat(boxGrp.style.top) < 0) boxGrp.style.top = '0px';
-                        }
-                    },
                 },
-                arr: buttonArr,
+                arr: btnArrInfo,
                 defaults: {
                     tag: 'input', type: 'button',
                     style: `margin-bottom: 3px;padding:0;border:1px solid;border-radius: 10px;
-                        width:100%;height:35px;background-color: field;
+                        min-width:100%;height:35px;background-color: field;
                         font:lighter 17px/20px caption;outline: none;`,
-                    onmousedown() {
-                        let ismove = false;
-                        this.onmousemove = function () { ismove = true };
-                        this.onmouseup = function () {
-                            if (!ismove) {
-                                if (this.did = !this.did) {
-                                    this.func1();
-                                    [...this.parentElement.$('input[type=button]', 1)].filter(e => e != this).forEach(e => e.did = false);
-                                } else this.func2();
-                            }
-                        };
-                    },
                     func1() { },
                     func2() { this.group.attachment.style.display = 'none'; },
                     init() {
@@ -212,7 +179,7 @@
                         });
                     },
                 },
-                arr: [buttonGrp, {
+                arr: [btnGrpInfo, {
                     name: '附件',
                     addStyle: `width: fit-content;height: fit-content;
                         padding: 10px;border: 1px solid;
@@ -228,7 +195,32 @@
                     },
                 }
             });
-            $tm.onloadFuncs.push(() => document.body.appendChild(boxGrp));
+            const btnGrp = boxGrp.$('div[title=按钮组]');
+            btnGrp.addEventListener('mousedown', e => {
+                let ismove = false;
+                const dx = parseFloat(window.getComputedStyle(boxGrp).left) - e.clientX,
+                    dy = parseFloat(window.getComputedStyle(boxGrp).top) - e.clientY;
+                const moveFn = e => {
+                    ismove = true
+                    boxGrp.style.left = dx + e.clientX + 'px';
+                    boxGrp.style.top = dy + e.clientY + 'px';
+                };
+                document.addEventListener('mousemove', moveFn);
+                document.addEventListener('mouseup', e => {
+                    document.removeEventListener('mousemove', moveFn);
+                    if (parseFloat(boxGrp.style.left) < 0) boxGrp.style.left = hiddLeft + 'px';
+                    if (parseFloat(boxGrp.style.top) < 0) boxGrp.style.top = '0px';
+                    //btn单击
+                    if (btnGrp.contains(e.target) && !ismove) {
+                        const btn = e.target;
+                        if (btn.did = !btn.did) {
+                            btn.func1();
+                            [...btnGrp.$('input[type=button]', 1)].filter(e => e != btn).forEach(e => e.did = false);
+                        } else btn.func2();
+                    }
+                }, { once: true });
+            });
+            $tm.onloadFuncs.push(() => { document.body.appendChild(boxGrp) });
         }
     }();
 
@@ -269,10 +261,9 @@
                         'ap_container', //google
                         'ad', //google
                         'b_ad', //bing-搜索
-                        'Pc-card Card', //zhihu-首页
+                        'Pc-card', //zhihu-首页
                         'unionAd', //baidu-百科
                         'jjjjasdasd', //halihali
-                        'pop-up-comp mask', //有道翻译
                         'ytd-ad-slot-renderer', //ytb
                         'Ads', //nico
                         'ads', //nico
@@ -389,7 +380,7 @@
     //chatGPT
     $tm.urlFunc(/chat.xeasy.me/, () => { $('#zsm').style.display = 'none'; });
     $tm.urlFunc(/chat35.com/, () => {
-        $tm.useLibs('Cookies').then(() => {
+        $tm.useLib('Cookies').then(() => {
             Object.keys(Cookies.get()).forEach(k => Cookies.remove(k));
         });
     });

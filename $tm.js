@@ -27,6 +27,25 @@
         libs = {
             'axios': 'https://unpkg.com/axios/dist/axios.min.js',
             'Cookies': 'https://cdn.jsdelivr.net/npm/js-cookie/dist/js.cookie.min.js',
+            'FFmpeg': 'https://unpkg.com/@ffmpeg/ffmpeg/dist/ffmpeg.min.js',
+        };
+        timer = class {
+            state = 'inactive';
+            constructor(config) { Object.assign(this, config); }
+            start() {
+                if (this.state == 'running') throw 'timer.start无法执行: ' + this.state;
+                this.state = 'running';
+                this.st = +new Date();
+                this.timer = setInterval(() => {
+                    this.log(+new Date() - this.st);
+                }, 1e3);
+            }
+            log(timeStamp) { return timeStamp; }
+            stop() {
+                if (this.state == 'inactive') throw 'timer.stop无法执行: ' + this.state;
+                this.state = 'inactive';
+                clearInterval(this.timer);
+            }
         };
         constructor() { }
         init() {
@@ -67,25 +86,22 @@
             this.addElms({ arr, defaults }).map(e => container.appendChild(e));
             return container;
         }
-        async urlFunc(reg, func1, func2 = function () { }) {
-            reg.test(document.URL) ? func1() : func2();
+        async urlFunc(reg, func1, func2) {
+            reg.test(document.URL) ? func1?.() : func2?.();
         }
-        async useLibs(...names) {
-            return await Promise.allSettled(names.map(e =>
-                new Promise((resolve, reject) => {
-                    const o = (message) => { return { lib: e, message: message } };
-                    if (typeof window[e] == 'undefined' && !$(`head script[id=lib_${e}]`)) {
-                        $('head').appendChild(this.addElms({
-                            arr: [{
-                                tag: 'script', type: 'module', id: `lib_${e}`,
-                                src: this.libs[e], async: true,
-                                onload: () => resolve(o(`加载成功 ${e}`)),
-                                onerror: () => reject(o(`加载错误 ${e}`)),
-                            }]
-                        })[0]);
-                    } else resolve(o(`库已存在 ${e}`));
-                })
-            )).then(es => es.forEach(e => { if (e.status == 'rejected') throw e.reason }));
+        useLib(name) {
+            return new Promise((resolve, reject) => {
+                if (typeof window[name] == 'undefined' && !$(`head script[id=lib_${name}]`)) {
+                    $('head').appendChild(this.addElms({
+                        arr: [{
+                            tag: 'script', type: 'module', id: `lib_${name}`,
+                            src: this.libs[name], async: true,
+                            onload: () => resolve(`加载成功 ${name}`),
+                            onerror: () => reject(`加载失败 ${name}`),
+                        }]
+                    })[0]);
+                } else resolve(`库已存在 ${name}`);
+            });
         }
         tip(info, duration = 1e3, color = 'orange') {
             const elm = document.body.appendChild(this.addElms({
@@ -117,7 +133,25 @@
                     if (e.origin == url && e.data == signal) stop = true;
                 });
             });
-        };
+        }
+        download(blob, type, name) {
+            const defaultType = (function () {
+                const type = blob.type.match(/(?<=\/)[^;\/]+/)[0].split('-').slice(-1)[0]
+                switch (type) {
+                    case 'matroska': return 'mkv';
+                    default: return type;
+                }
+            })();
+            console.table('下载文件类型', { blob: blob.type, defaultType, type });
+            type ??= defaultType;
+            $tm.addElms({
+                arr: [{
+                    tag: 'a',
+                    download: `${name || prompt(`${type}文件名:`) || '未命名'}.${type}`,
+                    href: URL.createObjectURL(blob),
+                }]
+            })[0].click();
+        }
     }().init();
 });
 const { $, ObjectToFormData } = $tm;

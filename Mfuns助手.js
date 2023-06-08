@@ -12,7 +12,7 @@
 // ==/UserScript==
 
 (async function () {
-    await $tm.useLibs('axios').then(res => {
+    await $tm.useLib('axios').then(res => {
         //每日任务
         $tm.urlFunc(/\?$/, async function () {
             //签到并获得奖励
