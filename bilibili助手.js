@@ -85,8 +85,10 @@
                     });
                 },
                 debug() {
-                    this.onmouseenter();
-                    this.onmouseleave = null;
+                    $tm.onloadFuncs.push(e => {
+                        this.onmouseenter();
+                        this.onmouseleave = null;
+                    });
                 }
             },
             arr: configs.map(e => {
@@ -94,7 +96,7 @@
                 e.panel ??= {};
                 Object.assign(e.panel.box ?? e.panel, {
                     title: '参数面板',
-                    init() { this.style.display = 'none'; }
+                    init() { this.style.cssText += 'font-size: 12px;display: none;'; }
                 });
                 //功能块
                 return {
@@ -126,7 +128,7 @@
         });
         $tm.onloadFuncs.push(e => {
             $('#bilibili-player').insertBefore(group, $('#bilibili-player').children[0]);
-            // group.debug();
+            group.update();
         });
         return group;
     }
@@ -191,9 +193,9 @@
                         timer.stop(); //停止计时
                         return ffmpeg.FS('readFile', 'output.mp4').buffer;
                     }).then(buffer => {
-                        $tm.download(new Blob([buffer], { type: 'video/mp4' }), null, '片段');
+                        $tm.download(new Blob([buffer], { type: 'video/mp4' }));
                     }).catch(console.error);
-                } else $tm.download(blob, null, '片段');
+                } else $tm.download(blob);
             };
         },
         panel: {
@@ -272,7 +274,7 @@
             onclick() {
                 // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/videostream_url.html
                 const obj = {}
-                this.parentElement.$('select', 1).forEach(e => obj[e.name] = +e.value);
+                this.panel.$('select', 1).forEach(e => obj[e.name] = +e.value);
                 Object.assign(this.params, obj);
                 console.log('流地址请求参数', this.params);
                 fetch('https://api.bilibili.com/x/player/playurl?' + new URLSearchParams(this.params).toString(), { credentials: 'include', })
@@ -399,8 +401,8 @@
                 this.params = {
                     cid: vd().cid,
                     bvid: vd().bvid,
-                    qn: 64, //清晰度 80:1080,64:720,16:360
-                    fnval: 16, //视频格式 1:mp4,16:dash
+                    qn: 64,
+                    fnval: 16,
                 };
             },
         }, {
@@ -430,13 +432,14 @@
                 }).then(e => vtip('停止发送'));
             }
         }]);
-        btnGrp.update();
+        // btnGrp.debug();
     });
 
     //番剧
     $tm.urlFunc(/www.bilibili.com\/bangumi/, () => {
         $('#bilibili-player').nodeListener(function () { return this.$('.bpx-player-toast-wrap').style.display = 'none'; });
         const btnGrp = buttonGroup(globalBtnArr);
+        // btnGrp.debug();
     });
 
     //选中动态文字不跳转
