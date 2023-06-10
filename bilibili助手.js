@@ -80,7 +80,6 @@
                 update() {
                     this.children.forEach(e => {
                         const btn = e.$('input');
-                        if (!btn.onclick) btn.style.backgroundColor = '#eff';
                         btn.panel = e.panel = e.$('div[title=参数面板]');
                         btn.panel.btn = btn;
                         btn.update?.();
@@ -169,36 +168,36 @@
     }, {
         name: '录制',
         onclick() {
-            const actions = {
-                'inactive': { fn: 'start', text: '●', color: 'red' },
-                'recording': { fn: 'pause', text: '▶', color: 'blue' },
-                'paused': { fn: 'resume', text: '●', color: 'red' },
+            const states = {
+                'inactive': {
+                    text: '●', color: 'red',
+                    fn() {
+                        this.update();
+                        this.recorder.start();
+                    },
+                },
+                'recording': {
+                    text: '▶', color: 'blue',
+                    fn() {
+                        this.recorder.pause();
+                    },
+                },
+                'paused': {
+                    text: '●', color: 'red',
+                    fn() {
+                        this.recorder.resume();
+                    },
+                },
             }
-            const state = actions[this.recorder.state];
-            this.recorder[state.fn]();
-            this.value = state.text;
-            this.style.color = state.color;
+            const { fn, text, color } = states[this.recorder.state];
+            fn.call(this);
+            this.value = text;
+            this.style.color = color;
         },
         ondblclick() {
-            this.recorder.stop();
             this.value = '录制';
             this.style.color = '';
-            this.recorder.ondataavailable = ({ data: blob }) => {
-                if (this.panel.$('input[type=checkbox]').checked) {
-                    $tm.useLib('FFmpeg').then(async () => {
-                        const ffmpeg = FFmpeg.createFFmpeg({});
-                        await ffmpeg.load();
-                        const timer = new $tm.timer({ log(ts) { vtip(`正在转换格式 ${parseInt(ts / 1e3)}s`, '转换格式'); } });
-                        timer.start(); //开始计时
-                        ffmpeg.FS('writeFile', 'input', new Uint8Array(await blob.arrayBuffer()));
-                        await ffmpeg.run('-i', 'input', '-c:v', 'libx264', '-c:a', 'aac', '-preset', 'fast', '-r', '30', '-f', 'mp4', 'output.mp4');
-                        timer.stop(); //停止计时
-                        return ffmpeg.FS('readFile', 'output.mp4').buffer;
-                    }).then(buffer => {
-                        $tm.download(new Blob([buffer], { type: 'video/mp4' }));
-                    }).catch(console.error);
-                } else $tm.download(blob);
-            };
+            this.recorder.stop();
         },
         panel: {
             box: {
@@ -210,24 +209,42 @@
                 box: {
                     tag: 'label',
                     innerHTML: '是否转化格式',
+                    title: '不建议勾选\n还不如用格式工厂',
                 },
                 arr: [{
                     tag: 'input',
                     type: 'checkbox',
-                    checked: true,
+                    // checked: true,
                 }]
             }]
         },
         update() {
             const elm = $('.bpx-player-video-wrap>*');
-            this.recorder = new MediaRecorder((function () {
-                switch (elm.tagName) {
-                    case 'VIDEO': return elm;
-                    case 'BWP-VIDEO': return elm.getRenderCanvas();
-                }
-            })().captureStream());
             this.panel.$('cite').innerHTML = elm.tagName;
-        }
+            if (elm.tagName == 'VIDEO') {
+                this.recorder = Object.assign(new MediaRecorder(elm.captureStream()), {
+                    ondataavailable: ({ data: blob }) => {
+                        if (this.panel.$('input[type=checkbox]').checked) {
+                            $tm.useLib('FFmpeg').then(async () => {
+                                const ffmpeg = FFmpeg.createFFmpeg({});
+                                await ffmpeg.load();
+                                const timer = new $tm.timer({ log(ts) { vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '录制-转换格式'); } });
+                                timer.start(); //开始计时
+                                ffmpeg.FS('writeFile', 'input.mkv', new Uint8Array(await blob.arrayBuffer()));
+                                await ffmpeg.run('-i', 'input.mkv', '-c:v', 'copy', '-c:a', 'aac', '-f', 'mp4', 'output.mp4');
+                                timer.stop(); //停止计时
+                                return ffmpeg.FS('readFile', 'output.mp4').buffer;
+                            }).then(buffer => {
+                                $tm.download(new Blob([buffer], { type: 'video/mp4' }));
+                            }).catch(console.error);
+                        } else $tm.download(blob);
+                    }
+                });
+            } else {
+                this.style.opacity = 0.4;
+                this.title = '无法录制\n请更改视频播放设置\n播放设置-播放策略-AVC';
+            }
+        },
     }];
     $tm.urlFunc(/www.bilibili.com\/video/, () => {
         // 页面内跳转
@@ -319,7 +336,7 @@
                                     function convertFormat(promise, MIMEtype, newFormat, oldFormat = 'm4s') {
                                         const args = MIMEtype.includes('audio') ? ['-vn', '-acodec', 'libmp3lame'] : ['-an', '-c', 'copy'];
                                         promise.then(async blob => {
-                                            const timer = new $tm.timer({ log(ts) { vtip(`正在转换格式${newFormat} ${parseInt(ts / 1e3)}s`, '转换格式'); } });
+                                            const timer = new $tm.timer({ log(ts) { vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '转换格式'); } });
                                             timer.start();
                                             ffmpeg.FS('writeFile', 'input.' + oldFormat, new Uint8Array(await blob.arrayBuffer()));
                                             await ffmpeg.run('-i', 'input.' + oldFormat, ...args, '-f', newFormat, 'output.' + newFormat);
@@ -412,6 +429,11 @@
             },
         }, {
             name: '倍速',
+            onclick() {
+                let max = prompt('设置最大值') || '3';
+                if (+max > 16) max = '16';
+                this.panel.$('input').max = max;
+            },
             panel: {
                 box: {},
                 arr: [{
@@ -423,7 +445,6 @@
                         $('.bpx-player-video-wrap>*').playbackRate = v;
                         this.parentElement.btn.value = v.toFixed(1) + 'x';
                     },
-                    ondblclick() { this.max = prompt('max:') || '3' },
                 }],
             }
         }, , {
