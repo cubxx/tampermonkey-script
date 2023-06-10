@@ -49,21 +49,23 @@
     });
 
     // 视频功能
-    function vtip(text) {
-        const elm = [...$('.bpx-player-tooltip-area .bpx-player-tooltip-title', 1)].find(e => e.innerText == text);
-        if (elm) {
-            (typeof elm.stop == 'number') && clearTimeout(elm.stop);
-            elm.del();
-        } else {
-            $('.bpx-player-tooltip-area').appendChild($tm.addElms({
+    function vtip(text, sign) {
+        sign ??= text;
+        const area = $('.bpx-player-tooltip-area');
+        const elm = [...area.$('.bpx-player-tooltip-item', 1)].find(e => e.sign == sign)
+            ?? area.appendChild($tm.addElms({
                 arr: [{
-                    tag: 'div', className: 'bpx-player-tooltip-item',
+                    tag: 'div', className: 'bpx-player-tooltip-item', sign,
                     style: `position: relative;top: -310px;margin: auto;visibility: visible;opacity: 1;`,
-                    innerHTML: `<div class="bpx-player-tooltip-title">${text}</div>`,
-                    del() { this.stop = setTimeout(() => this.remove(), 2.5e3); },
+                    innerHTML: `<div class="bpx-player-tooltip-title"></div>`,
+                    update(text) {
+                        elm.$('.bpx-player-tooltip-title').innerHTML = text;
+                        this.stop && clearTimeout(this.stop);
+                        this.stop = setTimeout(() => this.remove(), 2.5e3);
+                    },
                 }]
-            })[0]).del();
-        }
+            })[0]);
+        elm.update(text);
     }
     function buttonGroup(configs) {
         const group = $tm.addElmsGroup({
@@ -186,7 +188,7 @@
                     $tm.useLib('FFmpeg').then(async () => {
                         const ffmpeg = FFmpeg.createFFmpeg({});
                         await ffmpeg.load();
-                        vtip('开始转换格式mp4');
+                        const timer = new $tm.timer({ log(ts) { vtip(`正在转换格式 ${parseInt(ts / 1e3)}s`, '转换格式'); } });
                         timer.start(); //开始计时
                         ffmpeg.FS('writeFile', 'input', new Uint8Array(await blob.arrayBuffer()));
                         await ffmpeg.run('-i', 'input', '-c:v', 'libx264', '-c:a', 'aac', '-preset', 'fast', '-r', '30', '-f', 'mp4', 'output.mp4');
@@ -227,9 +229,6 @@
             this.panel.$('cite').innerHTML = elm.tagName;
         }
     }];
-    const timer = new $tm.timer({
-        log(ts) { vtip(`正在运行 ${parseInt(ts / 1e3)}s`); }
-    });
     $tm.urlFunc(/www.bilibili.com\/video/, () => {
         // 页面内跳转
         $('.bpx-player-video-wrap').nodeListener(function () {
@@ -303,7 +302,7 @@
                                                 request(vUrl, 'video'),
                                                 request(aUrl, 'audio'),
                                             ]).then(async ([vBlob, aBlob]) => {
-                                                vtip('开始合并音视频');
+                                                const timer = new $tm.timer({ log(ts) { vtip(`正在合并音视频 ${parseInt(ts / 1e3)}s`, '合并'); } });
                                                 timer.start();
                                                 ffmpeg.FS('writeFile', 'video.m4s', new Uint8Array(await vBlob.arrayBuffer()));
                                                 ffmpeg.FS('writeFile', 'audio.m4s', new Uint8Array(await aBlob.arrayBuffer()));
@@ -320,7 +319,7 @@
                                     function convertFormat(promise, MIMEtype, newFormat, oldFormat = 'm4s') {
                                         const args = MIMEtype.includes('audio') ? ['-vn', '-acodec', 'libmp3lame'] : ['-an', '-c', 'copy'];
                                         promise.then(async blob => {
-                                            vtip('开始转换格式' + newFormat);
+                                            const timer = new $tm.timer({ log(ts) { vtip(`正在转换格式${newFormat} ${parseInt(ts / 1e3)}s`, '转换格式'); } });
                                             timer.start();
                                             ffmpeg.FS('writeFile', 'input.' + oldFormat, new Uint8Array(await blob.arrayBuffer()));
                                             await ffmpeg.run('-i', 'input.' + oldFormat, ...args, '-f', newFormat, 'output.' + newFormat);
@@ -350,16 +349,20 @@
                     }).catch(errorFn);
                 async function request(url, sign = '') {
                     if (!url) return Promise.reject('找不到流地址\n' + sign);
-                    vtip('开始请求流地址' + sign);
-                    timer.start();
-                    const res = await fetch(url);
-                    const blob = await res.blob();
-                    timer.stop();
-                    return blob;
+                    try {
+                        const timer = new $tm.timer({ log(ts) { vtip(`正在请求流地址${sign} ${parseInt(ts / 1e3)}s`, sign); } });
+                        timer.start();
+                        const res = await fetch(url);
+                        const blob = await res.blob();
+                        timer.stop();
+                        return blob;
+                    } catch (e) {
+                        return errorFn(e);
+                    }
                 }
                 function errorFn(e) {
-                    console.error(e);
-                    alert(e);
+                    vtip(e);
+                    throw e;
                 }
             },
             panel: {
