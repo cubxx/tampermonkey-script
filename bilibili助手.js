@@ -272,7 +272,7 @@
             name: '下载',
             onclick() {
                 // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/videostream_url.html
-                const obj = {}
+                const obj = {};
                 this.panel.$('select', 1).forEach(e => obj[e.name] = +e.value);
                 Object.assign(this.params, obj);
                 console.log('流地址请求参数', this.params);
@@ -349,20 +349,22 @@
                     }).catch(errorFn);
                 async function request(url, sign = '') {
                     if (!url) return Promise.reject('找不到流地址\n' + sign);
+                    const timer = new $tm.timer({ log(ts) { vtip(`正在请求流地址${sign} ${parseInt(ts / 1e3)}s`, sign); } });
+                    timer.start();
                     try {
-                        const timer = new $tm.timer({ log(ts) { vtip(`正在请求流地址${sign} ${parseInt(ts / 1e3)}s`, sign); } });
-                        timer.start();
-                        const res = await fetch(url);
+                        const res = await fetch(url, { responseType: 'blob', });
                         const blob = await res.blob();
                         timer.stop();
                         return blob;
                     } catch (e) {
+                        timer.stop();
                         return errorFn(e);
                     }
                 }
                 function errorFn(e) {
-                    vtip(e);
-                    throw e;
+                    vtip(`<i style="font-size: 10px;color: yellow;">${e}</i>`);
+                    console.error(e);
+                    return Promise.reject(e);
                 }
             },
             panel: {
