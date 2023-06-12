@@ -20,6 +20,29 @@
             });
         },
     });
+    Object.assign(Function.prototype, {
+        debounce(delay) {
+            let timer = null;
+            const _this = this;
+            return function (...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => {
+                    _this(...args);
+                }, delay);
+            };
+        },
+        throttle(delay) {
+            let timer = null;
+            const _this = this;
+            return function (...args) {
+                if (timer) return;
+                timer = setTimeout(() => {
+                    _this(...args);
+                    timer = null;
+                }, delay);
+            };
+        },
+    });
     return new class {
         $ = $;
         onloadFuncs = [];
@@ -28,24 +51,6 @@
             'Cookies': 'https://cdn.jsdelivr.net/npm/js-cookie/dist/js.cookie.min.js',
             'FFmpeg': 'https://unpkg.com/@ffmpeg/ffmpeg/dist/ffmpeg.min.js',
             'html2canvas': "https://html2canvas.hertzen.com/dist/html2canvas.min.js",
-        };
-        timer = class {
-            state = 'inactive';
-            constructor(config) { Object.assign(this, config); }
-            start() {
-                if (this.state == 'running') throw 'timer.start无法执行: ' + this.state;
-                this.state = 'running';
-                this.st = +new Date();
-                this.timer = setInterval(() => {
-                    this.log(+new Date() - this.st);
-                }, 1e3);
-            }
-            log(timeStamp) { return timeStamp; }
-            stop() {
-                if (this.state == 'inactive') throw 'timer.stop无法执行: ' + this.state;
-                this.state = 'inactive';
-                clearInterval(this.timer);
-            }
         };
         constructor() { }
         set onload(func) { this.onloadFuncs.push(func); }
@@ -135,16 +140,38 @@
                 });
             });
         }
+        timer(config) {
+            return Object.assign({
+                state: 'inactive',
+                start() {
+                    if (this.state == 'running') throw 'timer.start无法执行: ' + this.state;
+                    this.state = 'running';
+                    this.st = +new Date();
+                    this.timer = setInterval(() => {
+                        this.log(+new Date() - this.st);
+                    }, 1e3);
+                },
+                log(timeStamp) {
+                    return timeStamp;
+                },
+                stop() {
+                    if (this.state == 'inactive') throw 'timer.stop无法执行: ' + this.state;
+                    this.state = 'inactive';
+                    clearInterval(this.timer);
+                }
+            }, config);
+        }
         download(blob, type, name) {
-            const defaultType = (function () {
-                const type = blob.type.match(/(?<=\/)[^;\/]+/)[0].split('-').slice(-1)[0]
+            const blobType = blob.type;
+            type ??= (function () {
+                if (!blobType) return blobType;
+                const type = blobType.match(/(?<=\/)[^;\/]+/)[0].split('-').slice(-1)[0]
                 switch (type) {
                     case 'matroska': return 'mkv';
                     default: return type;
                 }
             })();
-            console.table('下载文件类型', { blob: blob.type, defaultType, type });
-            type ??= defaultType;
+            console.table('下载文件类型', { blobType, type });
             this.addElms({
                 arr: [{
                     tag: 'a',
@@ -155,4 +182,4 @@
         }
     }().init();
 });
-const { $, ObjectToFormData } = $tm;
+const { $, ObjectToFormData } = window.$tm;
