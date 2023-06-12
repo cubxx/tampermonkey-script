@@ -6,7 +6,7 @@
 // @author       Cubxx
 // @match      https://*.chaoxing.com/*
 // @icon         https://mooc.chaoxing.com/favicon.ico
-// @require     https://cubxx.github.io/$tm.js
+// @require      https://cubxx.github.io/My-Tampermonkey-Script/$tm.js
 // @grant        none
 // ==/UserScript==
 

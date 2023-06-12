@@ -7,7 +7,7 @@
 // @match        https://*.bilibili.com/*
 // @exclude     https://api.bilibili.com/*
 // @exclude     https://api.vc.bilibili.com/*
-// @require    https://cubxx.github.io/$tm.js
+// @require     https://cubxx.github.io/My-Tampermonkey-Script/$tm.js
 // @icon         https://www.bilibili.com/favicon.ico
 // @grant        none
 // ==/UserScript==
@@ -398,7 +398,7 @@
                     }
                 }
                 function errorFn(e) {
-                    vtip(`<i style="font-size: 10px;color: yellow;">${e}</i > `);
+                    vtip(`<i style="font-size: 10px;color: yellow;">${e}</i> `);
                     console.error(e);
                     return Promise.reject(e);
                 }
@@ -466,7 +466,7 @@
                     },
                 }],
             }
-        }, , {
+        }, {
             name: '搬运',
             onclick() {
                 $tm.postMessage({

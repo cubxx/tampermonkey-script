@@ -165,7 +165,7 @@
             const blobType = blob.type;
             type ??= (function () {
                 if (!blobType) return blobType;
-                const type = blobType.match(/(?<=\/)[^;\/]+/)[0].split('-').slice(-1)[0]
+                const type = blobType.match(/(?<=\/)[^;\/]+/)[0].split('-').slice(-1)[0];
                 switch (type) {
                     case 'matroska': return 'mkv';
                     default: return type;
