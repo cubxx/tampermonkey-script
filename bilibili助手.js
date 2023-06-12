@@ -228,7 +228,7 @@
                             $tm.useLib('FFmpeg').then(async () => {
                                 const ffmpeg = FFmpeg.createFFmpeg({});
                                 await ffmpeg.load();
-                                const timer = new $tm.timer({ log(ts) { vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '录制-转换格式'); } });
+                                const timer = $tm.timer({ log(ts) { vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '录制-转换格式'); } });
                                 timer.start(); //开始计时
                                 ffmpeg.FS('writeFile', 'input.mkv', new Uint8Array(await blob.arrayBuffer()));
                                 await ffmpeg.run('-i', 'input.mkv', '-c:v', 'copy', '-c:a', 'aac', '-f', 'mp4', 'output.mp4');
@@ -319,7 +319,7 @@
                                                 request(vUrl, 'video'),
                                                 request(aUrl, 'audio'),
                                             ]).then(async ([vBlob, aBlob]) => {
-                                                const timer = new $tm.timer({ log(ts) { vtip(`正在合并音视频 ${parseInt(ts / 1e3)}s`, '合并'); } });
+                                                const timer = $tm.timer({ log(ts) { vtip(`正在合并音视频 ${parseInt(ts / 1e3)}s`, '合并'); } });
                                                 timer.start();
                                                 ffmpeg.FS('writeFile', 'video.m4s', new Uint8Array(await vBlob.arrayBuffer()));
                                                 ffmpeg.FS('writeFile', 'audio.m4s', new Uint8Array(await aBlob.arrayBuffer()));
@@ -336,7 +336,7 @@
                                     function convertFormat(promise, MIMEtype, newFormat, oldFormat = 'm4s') {
                                         const args = MIMEtype.includes('audio') ? ['-vn', '-acodec', 'libmp3lame'] : ['-an', '-c', 'copy'];
                                         promise.then(async blob => {
-                                            const timer = new $tm.timer({ log(ts) { vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '转换格式'); } });
+                                            const timer = $tm.timer({ log(ts) { vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '转换格式'); } });
                                             timer.start();
                                             ffmpeg.FS('writeFile', 'input.' + oldFormat, new Uint8Array(await blob.arrayBuffer()));
                                             await ffmpeg.run('-i', 'input.' + oldFormat, ...args, '-f', newFormat, 'output.' + newFormat);
@@ -364,22 +364,41 @@
                             }
                         }
                     }).catch(errorFn);
-                async function request(url, sign = '') {
+                async function request(url, sign = 'data') {
                     if (!url) return Promise.reject('找不到流地址\n' + sign);
-                    const timer = new $tm.timer({ log(ts) { vtip(`正在请求流地址${sign} ${parseInt(ts / 1e3)}s`, sign); } });
-                    timer.start();
                     try {
-                        const res = await fetch(url, { responseType: 'blob', });
-                        const blob = await res.blob();
-                        timer.stop();
+                        const { headers, body, ok, status, statusText } = await fetch(url);
+                        if (!ok) {
+                            throw `请求失败 ${status} ${statusText}`;
+                        }
+                        // const blob = await res.blob();
+                        const blob = await new Promise((resolve, reject) => {
+                            const totalBytes = +headers.get('content-length');
+                            let downloadBytes = 0;
+                            let chunks = [];
+                            const reader = body.getReader();
+                            const throttle = vtip.throttle(1e3); //节流 定时执行
+                            !function pump() {
+                                reader.read().then(({ value, done }) => {
+                                    if (done) {
+                                        vtip.throttle(1e3)(`获取完成${sign}`, sign);
+                                        resolve(new Blob(chunks));
+                                        return;
+                                    }
+                                    downloadBytes += value.length;
+                                    chunks.push(value);
+                                    throttle(`正在获取资源${sign} ${(1e2 * downloadBytes / totalBytes).toFixed(0)}%`, sign);
+                                    pump();
+                                }).catch(reject);
+                            }();
+                        });
                         return blob;
                     } catch (e) {
-                        timer.stop();
                         return errorFn(e);
                     }
                 }
                 function errorFn(e) {
-                    vtip(`<i style="font-size: 10px;color: yellow;">${e}</i>`);
+                    vtip(`<i style="font-size: 10px;color: yellow;">${e}</i > `);
                     console.error(e);
                     return Promise.reject(e);
                 }
