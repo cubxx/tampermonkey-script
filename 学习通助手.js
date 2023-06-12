@@ -13,7 +13,7 @@
 (function () {
     //自动下一节
     $tm.urlFunc(/mycourse\/studentstudy/, () => {
-        $tm.onloadFuncs.push(() => {
+        $tm.onload = () => {
             const lis = document.getElementsByClassName('posCatalog_select'); //右侧菜单所有元素
             let c = lis.length;
             //选择任务点
@@ -35,7 +35,7 @@
                 }
                 lis[c].innerText.includes('直播') && clearInterval(stop);
             }, 5 * 1000); //每5s检查一次
-        });
+        };
     });
 
     //视频

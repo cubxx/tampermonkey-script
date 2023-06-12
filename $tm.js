@@ -1,8 +1,8 @@
 !function (e, t) {
-    if (typeof window.$tm == 'undefined') window.$tm = t();
-}(this, function () {
+    if (typeof e.$tm == 'undefined') e.$tm = t();
+}(window, function () {
     'use strict';
-    const $ = function (Selectors, all) {
+    function $(Selectors, all) {
         let _this = this ? (this instanceof Node ? this : null) : document;
         if (_this) return all ? _this.querySelectorAll(Selectors) : _this.querySelector(Selectors);
         else throw `this对象类型错误 ${this}`;
@@ -10,16 +10,15 @@
     Object.assign(Node.prototype, {
         $,
         nodeListener(func, config) {
-            const MO = new MutationObserver((mutationList, observer) => {
-                func.call(this, mutationList, observer) && MO.disconnect();
+            const MO = new MutationObserver((...e) => {
+                func.call(this, ...e) && MO.disconnect();
             });
-            MO.observe(this, config || {
+            MO.observe(this, config ?? {
                 childList: true,
                 subtree: true,
                 attributes: false,
             });
         },
-        setValue(name, value) { if (this[name] != value) this[name] = value; },
     });
     return new class {
         $ = $;
@@ -28,6 +27,7 @@
             'axios': 'https://unpkg.com/axios/dist/axios.min.js',
             'Cookies': 'https://cdn.jsdelivr.net/npm/js-cookie/dist/js.cookie.min.js',
             'FFmpeg': 'https://unpkg.com/@ffmpeg/ffmpeg/dist/ffmpeg.min.js',
+            'html2canvas': "https://html2canvas.hertzen.com/dist/html2canvas.min.js",
         };
         timer = class {
             state = 'inactive';
@@ -48,6 +48,7 @@
             }
         };
         constructor() { }
+        set onload(func) { this.onloadFuncs.push(func); }
         init() {
             window.addEventListener('load', e => {
                 this.onloadFuncs.forEach(func => func());
@@ -144,7 +145,7 @@
             })();
             console.table('下载文件类型', { blob: blob.type, defaultType, type });
             type ??= defaultType;
-            $tm.addElms({
+            this.addElms({
                 arr: [{
                     tag: 'a',
                     download: `${name || prompt(`${type}文件名:`) || '未命名'}.${type}`,

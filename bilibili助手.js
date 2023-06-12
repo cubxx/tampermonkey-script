@@ -36,7 +36,7 @@
             else clearInterval(stop);
         }, 1000);
     }
-    $tm.onloadFuncs.push(delAds);
+    $tm.onload = delAds;
 
     //首页
     $tm.urlFunc(/www.bilibili.com\/$/, () => {
@@ -86,10 +86,10 @@
                     });
                 },
                 debug() {
-                    $tm.onloadFuncs.push(e => {
+                    $tm.onload = () => {
                         this.onmouseenter();
                         this.onmouseleave = null;
-                    });
+                    };
                 }
             },
             arr: configs.map(e => {
@@ -127,10 +127,10 @@
                 },
             }
         });
-        $tm.onloadFuncs.push(e => {
+        $tm.onload = () => {
             $('#bilibili-player').insertBefore(group, $('#bilibili-player').children[0]);
             group.update();
-        });
+        };
         return group;
     }
     const globalBtnArr = [{
@@ -257,7 +257,7 @@
         // sm号换为nico视频
         $('#v_desc')?.nodeListener(function () {
             this.$('a', 1).forEach(a => {
-                if (a.innerText.slice(0, 2) == 'sm') a.setValue('href', `https://www.nicovideo.jp/watch/${a.innerText}`);
+                if (/sm\d+/.test(a.innerText)) a.href = `https://www.nicovideo.jp/watch/${a.innerText}`;
             });
         });
         // 宽屏模式

@@ -220,7 +220,7 @@
                     }
                 }, { once: true });
             });
-            $tm.onloadFuncs.push(() => { document.body.appendChild(boxGrp) });
+            $tm.onload = () => { document.body.appendChild(boxGrp); };
         }
     }();
 
@@ -251,7 +251,7 @@
             else return _appendChild.call(this, node);
         }; */
         //DOM加载完后
-        $tm.onloadFuncs.push(function () {
+        $tm.onload = function () {
             const stop = setInterval(() => {
                 const ads = get({
                     className: [
@@ -288,7 +288,7 @@
                 clearInterval(stop);
                 console.log('广告识别停止');
             }, 5e2);
-        });
+        };
     }();
 
     //选择复制
@@ -296,8 +296,7 @@
         if (e.ctrlKey && e.code === 'KeyC') {
             if (!navigator.clipboard) throw '不支持 navigator.clipboard';
             const text = getSelection().toString();
-            if (!text) return;
-            navigator.clipboard.writeText(text).then(e => $tm.tip('复制成功'));
+            if (text) navigator.clipboard.writeText(text).then(e => $tm.tip('复制成功'));
         }
     }, true);
 
@@ -388,7 +387,7 @@
         document.body.nodeListener(() => { if ($('#modals')) return $('#modals').style.display = 'none'; }, { childList: true });
     });
     $tm.urlFunc(/(chat2.jinshutuan.com|chatbot.theb.ai)/, () => {
-        $tm.onloadFuncs.push(() => {
+        $tm.onload = () => {
             $('textarea').focus();
             $('.n-layout-scroll-container').style.cssText += 'max-width: 700px;';
             const wrapper = $('#image-wrapper');
@@ -400,10 +399,10 @@
                     init() { this.style.cssText += $('main button').style.cssText; }
                 }],
             })[0]);
-        });
+        };
     });
 
-    //知乎首页
+    //知乎
     $tm.urlFunc(/www.zhihu.com\/(follow)?$/, () => {
         $('#TopstoryContent').addEventListener('click', e => {
             if (e.target.classList[1] != "ContentItem-more") return;
@@ -419,11 +418,9 @@
             }, { childList: true });
         });
     });
-    //知乎问题
     $tm.urlFunc(/www.zhihu.com\/question/, () => {
         $('.App-main .QuestionHeader-title').title = `创建时间 ${$('meta[itemprop=dateCreated]').content}\n修改时间 ${$('meta[itemprop=dateModified]').content}`;
     });
-    //知乎文章
     $tm.urlFunc(/zhuanlan.zhihu.com\/p/, () => {
         $('article').insertBefore($('.ContentItem-time'), $('.Post-RichTextContainer'));
     });
