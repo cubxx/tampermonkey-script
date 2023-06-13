@@ -306,15 +306,16 @@
             'link.zhihu.com': null, //知乎
             'link.csdn.net': null, //CSDN
             'link.juejin.cn': null, //掘金
-            'c.pc.qq.com': function () {
-                const sp = new URL(document.URL).searchParams;
+            'c.pc.qq.com': sp => {
                 const url = sp.get('url') || sp.get('pfurl');
                 return url.includes('://') ? url : 'https://' + url;
             }, //QQ
+            'www.jianshu.com/go-wild': sp => sp.get('url'), //简书
         };
         for (let host in arr) {
             if (document.URL.includes(host)) {
-                location.href = (arr[host]?.()) || new URL(document.URL).searchParams.get('target');
+                const sp = new URL(document.URL).searchParams;
+                location.href = arr[host]?.(sp) || sp.get('target');
             }
         }
     }();
@@ -425,4 +426,39 @@
         $('article').insertBefore($('.ContentItem-time'), $('.Post-RichTextContainer'));
     });
 
+    //CoreNLP
+    $tm.urlFunc(/corenlp.run/, () => {
+        $('#wrap>.container').style.cssText += `display: flex;flex-direction: column;align-items: center;`;
+        $('#annotators_chosen').style.display = 'none';
+        const selectElm = $('#annotators'),
+            newDiv = $tm.addElmsGroup({
+                box: {
+                    style: `border: 1px solid #ccc;border-radius: 5px;padding: 8px;`,
+                },
+                arr: [...selectElm.$('option', 1)].map(({ value, innerHTML }) => {
+                    return {
+                        box: { innerHTML, },
+                        arr: [{
+                            value,
+                            checked: ['depparse', 'parse', 'openie'].includes(value),
+                        }],
+                        defaults: {
+                            tag: 'input', type: 'checkbox',
+                            init() { selectElm.$(`option[value="${this.value}"]`).selected = this.checked; }
+                        }
+                    };
+                }).toSpliced(4, 0, { tag: 'br', }),
+                defaults: {
+                    tag: 'label',
+                    style: `margin: 0 10px;font-weight: inherit;`,
+                }
+            });
+        newDiv.addEventListener('change', e => {
+            if (e.target.tagName == 'INPUT') {
+                const { value, checked } = e.target;
+                selectElm.$(`option[value="${value}"]`).selected = checked;
+            }
+        });
+        selectElm.parentElement.insertBefore(newDiv, selectElm);
+    });
 })();
