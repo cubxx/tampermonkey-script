@@ -370,11 +370,14 @@
     });
 
     //mdn换成中文
-    $tm.urlFunc(/developer.mozilla.org\/en-US/, () => {
+    $tm.urlFunc(/developer.mozilla.org\/[\w-]+\/docs/, () => {
         const b = $('#languages-switcher-button');
-        if (b) b.parentElement.nodeListener(() => {
-            $('.language-menu button', 1).forEach(e => e.innerText.includes('简体') && e.click());
-        }), b.click();
+        if (b && !b.innerText.includes('简体')) {
+            b.parentElement.nodeListener(() => {
+                $('.language-menu button', 1).forEach(e => e.innerText.includes('简体') && e.click());
+            });
+            b.click();
+        }
     });
 
     //chatGPT
@@ -428,12 +431,20 @@
 
     //CoreNLP
     $tm.urlFunc(/corenlp.run/, () => {
-        $('#wrap>.container').style.cssText += `display: flex;flex-direction: column;align-items: center;`;
+        // $('#wrap>.container').style.cssText += `display: flex;flex-direction: column;align-items: center;`;
         $('#annotators_chosen').style.display = 'none';
         const selectElm = $('#annotators'),
             newDiv = $tm.addElmsGroup({
                 box: {
                     style: `border: 1px solid #ccc;border-radius: 5px;padding: 8px;`,
+                    init() {
+                        this.addEventListener('change', e => {
+                            if (e.target.tagName == 'INPUT') {
+                                const { value, checked } = e.target;
+                                selectElm.$(`option[value="${value}"]`).selected = checked;
+                            }
+                        });
+                    }
                 },
                 arr: [...selectElm.$('option', 1)].map(({ value, innerHTML }) => {
                     return {
@@ -453,12 +464,67 @@
                     style: `margin: 0 10px;font-weight: inherit;`,
                 }
             });
-        newDiv.addEventListener('change', e => {
-            if (e.target.tagName == 'INPUT') {
-                const { value, checked } = e.target;
-                selectElm.$(`option[value="${value}"]`).selected = checked;
-            }
-        });
-        selectElm.parentElement.insertBefore(newDiv, selectElm);
+        selectElm.before(newDiv);
+        Object.assign($('#annotations'), {
+            matrix(type, { scale: s = 1, position: [x, y] = [0, 0] } = {}) {
+                switch (type) {
+                    case 'get': {
+                        const css = getComputedStyle(this.svg).transform;
+                        if (css == 'none') {
+                            return { scale: s, position: [x, y], }
+                        } else {
+                            const matchArr = css.match(/matrix\(([\s\S]+)\)/);
+                            if (!matchArr) throw '匹配失败 ' + css;
+                            const matrix = matchArr[1].split(', ').map(e => +e);
+                            return {
+                                scale: matrix[0],
+                                position: matrix.slice(4, 6),
+                            };
+                        }
+                    }
+                    case 'set': this.svg.style.transform = `matrix(${[s, 0, 0, s, x, y].join(', ')})`;
+                }
+            },
+            init() {
+                this.nodeListener(function () {
+                    this.$('div[id]', 1).forEach(e => {
+                        e.style.cssText += 'overflow: hidden;border: 1px solid;min-height: 140px;';
+                        e.svg = e.$('svg');
+                    });
+                }, { childList: true });
+                this.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    if (e.target.tagName != 'H4') {
+                        const elm = e.target.closest('div[id]');
+                        const { scale, position: orig } = this.matrix.call(elm, 'get');
+                        const [dx, dy] = [orig[0] - e.clientX, orig[1] - e.clientY];
+                        const moveFn = e => {
+                            const position = [dx + e.clientX, dy + e.clientY];
+                            this.matrix.call(elm, 'set', { scale, position });
+                        };
+                        this.addEventListener('mousemove', moveFn);
+                        this.addEventListener('mouseup', e => {
+                            this.removeEventListener('mousemove', moveFn);
+                        });
+                    }
+                });
+                this.addEventListener('wheel', e => {
+                    e.preventDefault();
+                    if (e.target.tagName != 'H4') {
+                        const elm = e.target.closest('div[id]');
+                        const { scale: orig, position } = this.matrix.call(elm, 'get');
+                        const scale = (orig - Math.sign(e.deltaY) * 0.1).clamp(0.1, 2);
+                        this.matrix.call(elm, 'set', { scale, position });
+                    }
+                });
+                this.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    if (e.target.tagName != 'H4') {
+                        const elm = e.target.closest('div[id]');
+                        this.matrix.call(elm, 'set');
+                    }
+                });
+            },
+        }).init();
     });
 })();
