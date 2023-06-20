@@ -19,22 +19,23 @@
     async function delAds() {
         let stop = setInterval(function () {
             const ads = [
-                '.ad-report', //bilibili-视频-广告
-                '.slide-ad-exp', //bilibili-视频-广告
-                '.pop-live-small-mode', //bilibili-视频-mini直播
-                '.eva-banner', //bilibili-横向广告
-                '.banner-card', //bilibili-横向广告-老版
-                '.gg-floor-module', //bilibili-番剧
-                '.activity-banner', //bilibili-活动
-                '#activity_vote', //bilibili-活动
-                '.bili-dyn-ads', //bilibili-动态广告
-                '.reply-notice', //bilibili-通知
+                '.ad-report', //视频-广告
+                '.slide-ad-exp', //视频-广告
+                '.pop-live-small-mode', //视频-mini直播
+                '.eva-banner', //横向广告
+                '.banner-card', //横向广告-老版
+                '.gg-floor-module', //番剧
+                '.activity-banner', //活动
+                '#activity_vote', //活动
+                '.bili-dyn-ads', //动态广告
+                '.reply-notice', //通知
+                '.vip-wrap', //大会员
             ].flatMap(e => [...$(e, 1)]);
             for (let ad of ads) ad.style.display = 'none';
             if (document.URL.includes('bilibili.com/video'))
                 ads.length == 0 && clearInterval(stop);
             else clearInterval(stop);
-        }, 1000);
+        }, 1e2);
     }
     $tm.onload = delAds;
 
@@ -289,113 +290,107 @@
             name: '下载',
             onclick() {
                 // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/videostream_url.html
-                const obj = {};
-                this.panel.$('select', 1).forEach(e => obj[e.name] = +e.value);
-                Object.assign(this.params, obj);
-                console.log('流地址请求参数', this.params);
-                fetch('https://api.bilibili.com/x/player/playurl?' + new URLSearchParams(this.params).toString(), { credentials: 'include', })
-                    .then(res => res.json())
-                    .then(({ data, message }) => {
-                        // vtip('成功获取流地址');
-                        const { durl, dash } = data;
-                        const base = [vd().title, vd().owner.name, null].join('-');
-                        if (durl) {
-                            if (data.quality == this.params.qn) {
-                                request(durl[0].url).then(blob => $tm.download(blob, 'mp4', base));
-                            } else alert('mp4格式仅支持以下清晰度:\n' + data.accept_description.join('\n'));
+                !async function () {
+                    // 请求流地址
+                    const { cid, page } = getPageData();
+                    const default_params_obj = {
+                        cid,
+                        bvid: vd().bvid,
+                    }, panel_params_obj = [...this.panel.$('select', 1)].reduce((acc, e) => {
+                        acc[e.name] = +e.value;
+                        return acc;
+                    }, {});
+                    const total_params_obj = Object.assign(default_params_obj, panel_params_obj);
+                    console.log('流地址请求参数', total_params_obj);
+                    const { data, message } = await fetch('https://api.bilibili.com/x/player/playurl?' + new URLSearchParams(total_params_obj).toString(), { credentials: 'include', }).then(res => res.json());
+                    const { durl, dash } = data;
+                    // 获取文件
+                    const fliename = [vd().title, vd().owner.name, 'p' + page, null].join('-');
+                    if (durl) {
+                        if (data.quality == total_params_obj.qn) {
+                            getBlob(durl[0].url).then(blob => $tm.download(blob, 'mp4', fliename));
+                        } else alert('mp4格式仅支持以下清晰度:\n' + data.accept_description.join('\n'));
+                    } else {
+                        const vUrl = dash.video.find(e => e.id == total_params_obj.qn && e.codecid == total_params_obj.codecid)?.baseUrl,
+                            aUrl = dash.audio.find(e => e.id == total_params_obj.audio_qn)?.baseUrl;
+                        //是否转换格式
+                        if (this.panel.$('input[type=checkbox]').checked) {
+                            await $tm.useLib('FFmpeg');
+                            const ffmpeg = FFmpeg.createFFmpeg({});
+                            await ffmpeg.load();
+                            vtip('FFmpeg加载完毕');
+                            //下载不同内容
+                            switch (total_params_obj.content) {
+                                case 0: convertFormat(Promise.all([
+                                    getBlob(vUrl, 'video'),
+                                    getBlob(aUrl, 'audio'),
+                                ]), 'video/mp4', 'mp4', ['-c:v', 'copy', '-c:a', 'copy']); break;
+                                case 1: convertFormat(getBlob(vUrl, 'video'), 'video/mp4', 'mp4', ['-vn', '-acodec', 'libmp3lame']); break;
+                                case 2: convertFormat(getBlob(aUrl, 'audio'), 'audio/mpeg', 'mp3', ['-an', '-c', 'copy']); break;
+                            }
+                            async function convertFormat(promise, MIMEtype, newFormat, convertArgs) {
+                                const res = await promise;
+                                if (res instanceof Blob) res = [res];
+                                const fileArgs = await Promise.all(res.map(async (blob, i) => {
+                                    const name = i + '.m4s';
+                                    ffmpeg.FS('writeFile', name, new Uint8Array(await blob.arrayBuffer()));
+                                    return ['-i', name];
+                                }));
+                                const timer = $tm.timer({ log(ts) { vtip(`正在转换格式${newFormat} ${parseInt(ts / 1e3)}s`, '转换格式'); } });
+                                timer.start();
+                                await ffmpeg.run(...fileArgs.flat(), ...convertArgs, '-f', newFormat, 'output');
+                                timer.stop();
+                                const buffer = await ffmpeg.FS('readFile', 'output').buffer;
+                                $tm.download(new Blob([buffer], { type: MIMEtype }), newFormat, fliename);
+                            }
                         } else {
-                            const vUrl = dash.video.find(e => e.id == this.params.qn && e.codecid == this.params.codecid)?.baseUrl,
-                                aUrl = dash.audio.find(e => e.id == this.params.audio_qn)?.baseUrl;
-                            //是否转换格式
-                            if (this.panel.$('input[type=checkbox]').checked) {
-                                $tm.useLib('FFmpeg').then(async () => {
-                                    const ffmpeg = FFmpeg.createFFmpeg({});
-                                    await ffmpeg.load();
-                                    vtip('FFmpeg加载完毕');
-                                    //下载不同内容
-                                    switch (this.params.content) {
-                                        case 0: {
-                                            Promise.all([
-                                                request(vUrl, 'video'),
-                                                request(aUrl, 'audio'),
-                                            ]).then(async ([vBlob, aBlob]) => {
-                                                const timer = $tm.timer({ log(ts) { vtip(`正在合并音视频 ${parseInt(ts / 1e3)}s`, '合并'); } });
-                                                timer.start();
-                                                ffmpeg.FS('writeFile', 'video.m4s', new Uint8Array(await vBlob.arrayBuffer()));
-                                                ffmpeg.FS('writeFile', 'audio.m4s', new Uint8Array(await aBlob.arrayBuffer()));
-                                                await ffmpeg.run('-i', 'video.m4s', '-i', 'audio.m4s', '-c:v', 'copy', '-c:a', 'copy', '-f', 'mp4', 'output.mp4');
-                                                timer.stop();
-                                                return ffmpeg.FS('readFile', 'output.mp4').buffer;
-                                            }).then(buffer => {
-                                                $tm.download(new Blob([buffer], { type: 'video/mp4' }), 'mp4', base);
-                                            }).catch(errorFn); break;
-                                        }
-                                        case 1: convertFormat(request(vUrl, 'video'), 'video/mp4', 'mp4'); break;
-                                        case 2: convertFormat(request(aUrl, 'audio'), 'audio/mpeg', 'mp3'); break;
-                                    }
-                                    function convertFormat(promise, MIMEtype, newFormat, oldFormat = 'm4s') {
-                                        const args = MIMEtype.includes('audio') ? ['-vn', '-acodec', 'libmp3lame'] : ['-an', '-c', 'copy'];
-                                        promise.then(async blob => {
-                                            const timer = $tm.timer({ log(ts) { vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '转换格式'); } });
-                                            timer.start();
-                                            ffmpeg.FS('writeFile', 'input.' + oldFormat, new Uint8Array(await blob.arrayBuffer()));
-                                            await ffmpeg.run('-i', 'input.' + oldFormat, ...args, '-f', newFormat, 'output.' + newFormat);
-                                            timer.stop();
-                                            return ffmpeg.FS('readFile', 'output.' + newFormat).buffer;
-                                        }).then(buffer => {
-                                            $tm.download(new Blob([buffer], { type: MIMEtype }), newFormat, base);
-                                        }).catch(errorFn);
-                                    }
-                                });
-                            } else {
-                                switch (this.params.content) {
-                                    case 0: {
-                                        Promise.all([
-                                            request(vUrl, 'video'),
-                                            request(aUrl, 'audio'),
-                                        ]).then(([vBlob, aBlob]) => {
-                                            $tm.download(vBlob, 'm4s', base + 'video');
-                                            $tm.download(aBlob, 'm4s', base + 'audio');
-                                        }).catch(errorFn); break;
-                                    }
-                                    case 1: request(vUrl, 'video').then(blob => $tm.download(blob, 'm4s', base + 'video')).catch(errorFn); break;
-                                    case 2: request(aUrl, 'audio').then(blob => $tm.download(blob, 'm4s', base + 'audio')).catch(errorFn); break;
+                            switch (total_params_obj.content) {
+                                case 0: {
+                                    Promise.all([
+                                        getBlob(vUrl, 'video'),
+                                        getBlob(aUrl, 'audio'),
+                                    ]).then(([vBlob, aBlob]) => {
+                                        $tm.download(vBlob, 'm4s', fliename + 'video');
+                                        $tm.download(aBlob, 'm4s', fliename + 'audio');
+                                    }); break;
                                 }
+                                case 1: getBlob(vUrl, 'video').then(blob => $tm.download(blob, 'm4s', fliename + 'video')); break;
+                                case 2: getBlob(aUrl, 'audio').then(blob => $tm.download(blob, 'm4s', fliename + 'audio')); break;
                             }
                         }
-                    }).catch(errorFn);
-                async function request(url, sign = 'data') {
-                    if (!url) return Promise.reject('找不到流地址\n' + sign);
-                    try {
-                        const { headers, body, ok, status, statusText } = await fetch(url);
-                        if (!ok) {
-                            throw `请求失败 ${status} ${statusText}`;
-                        }
-                        // const blob = await res.blob();
-                        const blob = await new Promise((resolve, reject) => {
-                            const totalBytes = +headers.get('content-length');
-                            let downloadBytes = 0;
-                            let chunks = [];
-                            const reader = body.getReader();
-                            const throttle = vtip.throttle(1e3); //节流 定时执行
-                            !function pump() {
-                                reader.read().then(({ value, done }) => {
-                                    if (done) {
-                                        vtip.throttle(1e3)(`获取完成${sign}`, sign);
-                                        resolve(new Blob(chunks));
-                                        return;
-                                    }
-                                    downloadBytes += value.length;
-                                    chunks.push(value);
-                                    throttle(`正在获取资源${sign} ${(1e2 * downloadBytes / totalBytes).toFixed(0)}%`, sign);
-                                    pump();
-                                }).catch(reject);
-                            }();
-                        });
-                        return blob;
-                    } catch (e) {
-                        return errorFn(e);
                     }
+                }.call(this).catch(errorFn);
+                function getPageData() {
+                    // 分p数据
+                    const pageNum = +new URL(document.URL).searchParams.get('p');
+                    if (pageNum) return vd().pages[pageNum - 1];
+                    else return vd().pages[0];
+                }
+                async function getBlob(url, sign = 'data') {
+                    if (!url) return errorFn('找不到流地址\n' + sign);
+                    const { headers, body, ok, status, statusText } = await fetch(url);
+                    if (!ok) return errorFn(`请求失败 ${status} ${statusText}`);
+                    // return await res.blob();
+                    return await new Promise((resolve, reject) => {
+                        const totalBytes = +headers.get('content-length');
+                        let downloadBytes = 0;
+                        let chunks = [];
+                        const reader = body.getReader();
+                        const throttle = vtip.throttle(1e3); //节流 定时执行
+                        !function pump() {
+                            reader.read().then(({ value, done }) => {
+                                if (done) {
+                                    vtip.throttle(1e3)(`获取完成${sign}`, sign);
+                                    resolve(new Blob(chunks));
+                                    return;
+                                }
+                                downloadBytes += value.length;
+                                chunks.push(value);
+                                throttle(`正在获取资源${sign} ${(1e2 * downloadBytes / totalBytes).toFixed(0)}%`, sign);
+                                pump();
+                            }).catch(reject);
+                        }();
+                    });
                 }
                 function errorFn(e) {
                     vtip(`<i style="font-size: 10px;color: yellow;">${e}</i> `);
@@ -437,14 +432,6 @@
                         checked: true,
                     }]
                 })
-            },
-            update() {
-                this.params = {
-                    cid: vd().cid,
-                    bvid: vd().bvid,
-                    qn: 64,
-                    fnval: 16,
-                };
             },
         }, {
             name: '倍速',
