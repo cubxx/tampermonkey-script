@@ -3,11 +3,21 @@
 }(window, function () {
     'use strict';
     function $(Selectors, all) {
-        let _this = this ? (this instanceof Node ? this : null) : document;
+        const _this = this ? (this instanceof Node ? this : null) : document;
         if (_this) return all ? _this.querySelectorAll(Selectors) : _this.querySelector(Selectors);
         else throw `this对象类型错误 ${this}`;
     };
-    Object.assign(Node.prototype, {
+    function addProperties(locked, p, o) {
+        if (locked) {
+            Object.keys(o).forEach(k => o[k] = {
+                value: o[k],
+                writable: true,
+                enumerable: false,
+            });
+            Object.defineProperties(p, o);
+        } else Object.assign(p, o);
+    }
+    addProperties(0, Node.prototype, {
         $,
         nodeListener(func, config) {
             const MO = new MutationObserver((...e) => {
@@ -20,7 +30,7 @@
             });
         },
     });
-    Object.assign(Function.prototype, {
+    addProperties(1, Function.prototype, {
         debounce(delay) {
             let timer = null;
             const _this = this;
@@ -43,18 +53,24 @@
             };
         },
     });
-    return new class {
-        $ = $;
-        onloadFuncs = [];
-        libs = {
+    addProperties(1, Number.prototype, {
+        clamp(min, max) {
+            if (this < min) return min;
+            else if (this > max) return max;
+            else return this;
+        },
+    })
+    return {
+        $,
+        onloadFuncs: [],
+        libs: {
             'axios': 'https://unpkg.com/axios/dist/axios.min.js',
             'Cookies': 'https://cdn.jsdelivr.net/npm/js-cookie/dist/js.cookie.min.js',
             'FFmpeg': 'https://unpkg.com/@ffmpeg/ffmpeg/dist/ffmpeg.min.js',
             'html2canvas': "https://html2canvas.hertzen.com/dist/html2canvas.min.js",
-        };
-        constructor() { }
-        set onload(func) { this.onloadFuncs.push(func); }
-        init() {
+        },
+        set onload(func) { this.onloadFuncs.push(func); },
+        addEventListeners() {
             window.addEventListener('load', e => {
                 this.onloadFuncs.forEach(func => func());
             }, true);
@@ -65,14 +81,14 @@
                 if (e instanceof ErrorEvent) e.filename.includes('userscript.html') && this.tip(e.message, 3e3, 'red');
             }, true);
             return this;
-        }
+        },
         ObjectToFormData(obj) {
             const formData = new FormData();
             Object.keys(obj).forEach(key => {
                 formData.append(key, obj[key]);
             });
             return formData;
-        }
+        },
         addElms({ arr, defaults }) {
             defaults ??= { tag: 'div' };
             return arr.map(config => {
@@ -86,15 +102,15 @@
                 elm.init?.();
                 return elm;
             });
-        }
+        },
         addElmsGroup({ box, arr, defaults }) {
             const container = this.addElms({ arr: [box] })[0];
             this.addElms({ arr, defaults }).map(e => container.appendChild(e));
             return container;
-        }
+        },
         async urlFunc(reg, func1, func2) {
             reg.test(document.URL) ? func1?.() : func2?.();
-        }
+        },
         useLib(name) {
             return new Promise((resolve, reject) => {
                 if (typeof window[name] == 'undefined' && !$(`head script[id=lib_${name}]`)) {
@@ -108,7 +124,7 @@
                     })[0]);
                 } else resolve(`库已存在 ${name}`);
             });
-        }
+        },
         tip(info, duration = 1e3, color = 'orange') {
             const elm = document.body.appendChild(this.addElms({
                 arr: [{
@@ -124,22 +140,29 @@
             })[0]);
             setTimeout(e => elm.animate(), 5);
             return elm;
-        }
-        async postMessage({ url, data, signal, func }) {
+        },
+        postMessage({ url, data, signal, func }) {
             return new Promise((resolve, reject) => {
                 let stop = false;
                 const win = window.open(url),
                     key = setInterval(() => {
                         win.postMessage(data, url);
-                        func && func(data);
-                        if (win.closed) reject(), clearInterval(key);
-                        if (stop) resolve(), clearInterval(key);
+                        func?.(data);
+                        if (win.closed) { reject(); endFn(); }
+                        if (stop) { resolve(); endFn(); }
                     }, 1e3);
-                window.addEventListener('message', e => {
-                    if (e.origin == url && e.data == signal) stop = true;
-                });
+                window.addEventListener('message', fn);
+                function fn(e) {
+                    if (e.origin == url && e.data == signal) {
+                        stop = true;
+                    }
+                }
+                function endFn() {
+                    window.removeEventListener('message', fn);
+                    clearInterval(key);
+                }
             });
-        }
+        },
         timer(config) {
             return Object.assign({
                 state: 'inactive',
@@ -160,7 +183,7 @@
                     clearInterval(this.timer);
                 }
             }, config);
-        }
+        },
         download(blob, type, name) {
             const blobType = blob.type;
             type ??= (function () {
@@ -179,7 +202,7 @@
                     href: URL.createObjectURL(blob),
                 }]
             })[0].click();
-        }
-    }().init();
+        },
+    }.addEventListeners();
 });
 const { $, ObjectToFormData } = window.$tm;

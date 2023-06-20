@@ -47,7 +47,7 @@
             }, {
                 name: '地址查找',
                 apis: [
-                    ['amap', 'https://ditu.amap.com/search?query='],
+                    ['amap', 'https://ditu.amap.com/search?query=', true],
                     ['google', 'https://www.google.com/maps/search/'],
                     ['bing', 'https://cn.bing.com/maps/?setlang=zh-Hans&q='],
                 ],
@@ -56,17 +56,18 @@
                     if (!address) return this.did = false;
                     this.group.attachment.innerHTML = `<b style="white-space: nowrap;">${address}</b>`
                         + $tm.addElms({
-                            arr: this.apis.map(e => {
-                                return {
-                                    href: e[1] + encodeURI(address),
-                                    innerText: e[0],
-                                }
+                            arr: this.apis.map(([innerText, href, autoClick]) => {
+                                return { innerText, href, autoClick };
                             }),
                             defaults: {
                                 tag: 'a',
                                 style: `text-decoration: none;display: block;padding: 2px;`,
                                 target: '_blank',
-                                init() { this.title = this.href; }
+                                init() {
+                                    this.href += encodeURI(address);
+                                    this.title = this.href;
+                                    this.autoClick && this.click();
+                                }
                             }
                         }).map(e => e.outerHTML).join('');
                 }
@@ -150,7 +151,7 @@
                 defaults: {
                     tag: 'input', type: 'button',
                     style: `margin-bottom: 3px;padding:0;border:1px solid;border-radius: 10px;
-                        min-width:100%;height:35px;background-color: field;
+                        min-width:100%;max-width:100%;height:35px;background-color: field;
                         font:lighter 17px/20px caption;outline: none;`,
                     func1() { },
                     func2() { this.group.attachment.style.display = 'none'; },
@@ -211,12 +212,22 @@
                     if (parseFloat(boxGrp.style.left) < 0) boxGrp.style.left = hiddLeft + 'px';
                     if (parseFloat(boxGrp.style.top) < 0) boxGrp.style.top = '0px';
                     //btn单击
-                    if (btnGrp.contains(e.target) && !ismove) {
-                        const btn = e.target;
-                        if (btn.did = !btn.did) {
-                            btn.func1();
-                            [...btnGrp.$('input[type=button]', 1)].filter(e => e != btn).forEach(e => e.did = false);
-                        } else btn.func2();
+                    if (!ismove && btnGrp.contains(e.target)) {
+                        switch (e.button) {
+                            case 0: { //左键
+                                const btn = e.target;
+                                if (btn.did = !btn.did) {
+                                    btn.func1();
+                                    [...btnGrp.$('input[type=button]', 1)].filter(e => e != btn).forEach(e => e.did = false);
+                                } else btn.func2();
+                                break;
+                            }
+                            case 1: break; //中键
+                            case 2: { //右键
+                                e.preventDefault();
+                                break;
+                            }
+                        }
                     }
                 }, { once: true });
             });
@@ -270,6 +281,7 @@
                         'baxia-dialog', //高德地图
                         'sufei-dialog', //高德地图
                         'app-download-panel', //高德地图
+                        'pop-up-comp', //有道翻译
                     ],
                     id: [
                         'player-ads', //ytb
@@ -424,6 +436,7 @@
     });
     $tm.urlFunc(/www.zhihu.com\/question/, () => {
         $('.App-main .QuestionHeader-title').title = `创建时间 ${$('meta[itemprop=dateCreated]').content}\n修改时间 ${$('meta[itemprop=dateModified]').content}`;
+        $('header').style.display = 'none';
     });
     $tm.urlFunc(/zhuanlan.zhihu.com\/p/, () => {
         $('article').insertBefore($('.ContentItem-time'), $('.Post-RichTextContainer'));
@@ -494,7 +507,7 @@
                 }, { childList: true });
                 this.addEventListener('mousedown', e => {
                     e.preventDefault();
-                    if (e.target.tagName != 'H4') {
+                    if (!/(H4|DIV)/.test(e.target.tagName)) {
                         const elm = e.target.closest('div[id]');
                         const { scale, position: orig } = this.matrix.call(elm, 'get');
                         const [dx, dy] = [orig[0] - e.clientX, orig[1] - e.clientY];
@@ -510,7 +523,7 @@
                 });
                 this.addEventListener('wheel', e => {
                     e.preventDefault();
-                    if (e.target.tagName != 'H4') {
+                    if (!/(H4|DIV)/.test(e.target.tagName)) {
                         const elm = e.target.closest('div[id]');
                         const { scale: orig, position } = this.matrix.call(elm, 'get');
                         const scale = (orig - Math.sign(e.deltaY) * 0.1).clamp(0.1, 2);
@@ -519,7 +532,7 @@
                 });
                 this.addEventListener('contextmenu', e => {
                     e.preventDefault();
-                    if (e.target.tagName != 'H4') {
+                    if (!/(H4|DIV)/.test(e.target.tagName)) {
                         const elm = e.target.closest('div[id]');
                         this.matrix.call(elm, 'set');
                     }
