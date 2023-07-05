@@ -30,7 +30,7 @@
                 '.bili-dyn-ads', //动态广告
                 '.reply-notice', //通知
                 '.vip-wrap', //大会员
-            ].flatMap(e => [...$(e, 1)]);
+            ].flatMap(e => $(e, 1));
             for (let ad of ads) ad.style.display = 'none';
             if (document.URL.includes('bilibili.com/video'))
                 ads.length == 0 && clearInterval(stop);
@@ -42,7 +42,7 @@
     //首页
     $tm.urlFunc(/www.bilibili.com\/$/, () => {
         $('main').nodeListener(async function () {
-            [...this.$('section', 1)].filter(e => {
+            this.$('section', 1).filter(e => {
                 let a = e.$('a');
                 if (a) return a.id == '推广';
             }).forEach(e => e.style.display = 'none');
@@ -53,7 +53,7 @@
     function vtip(text, sign) {
         sign ??= text;
         const area = $('.bpx-player-tooltip-area');
-        const elm = [...area.$('.bpx-player-tooltip-item', 1)].find(e => e.sign == sign)
+        const elm = area.$('.bpx-player-tooltip-item', 1).find(e => e.sign == sign)
             ?? area.appendChild($tm.addElms({
                 arr: [{
                     tag: 'div', className: 'bpx-player-tooltip-item', sign,
@@ -152,7 +152,7 @@
                     case 'BWP-VIDEO': return elm.getRenderCanvas();
                 }
             }().toBlob(blob => {
-                [..._this.panel.$('input[type=radio]', 1)].find(e => e.checked).value == '本地' ?
+                _this.panel.$('input[type=radio]', 1).find(e => e.checked).value == '本地' ?
                     $tm.download(blob) :
                     navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(e => vtip('已截图'));
             }, 'image/png');
@@ -226,7 +226,7 @@
                 this.recorder = Object.assign(new MediaRecorder(elm.captureStream()), {
                     ondataavailable: ({ data: blob }) => {
                         if (this.panel.$('input[type=checkbox]').checked) {
-                            $tm.useLib('FFmpeg').then(async () => {
+                            $tm.libs['FFmpeg'].use().then(async () => {
                                 const ffmpeg = FFmpeg.createFFmpeg({});
                                 await ffmpeg.load();
                                 const timer = $tm.timer({ log(ts) { vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '录制-转换格式'); } });
@@ -296,7 +296,7 @@
                     const default_params_obj = {
                         cid,
                         bvid: vd().bvid,
-                    }, panel_params_obj = [...this.panel.$('select', 1)].reduce((acc, e) => {
+                    }, panel_params_obj = this.panel.$('select', 1).reduce((acc, e) => {
                         acc[e.name] = +e.value;
                         return acc;
                     }, {});
@@ -315,7 +315,7 @@
                             aUrl = dash.audio.find(e => e.id == total_params_obj.audio_qn)?.baseUrl;
                         //是否转换格式
                         if (this.panel.$('input[type=checkbox]').checked) {
-                            await $tm.useLib('FFmpeg');
+                            await $tm.libs['FFmpeg'].use();
                             const ffmpeg = FFmpeg.createFFmpeg({});
                             await ffmpeg.load();
                             vtip('FFmpeg加载完毕');
@@ -367,6 +367,7 @@
                     else return vd().pages[0];
                 }
                 async function getBlob(url, sign = 'data') {
+                    vtip(`请求流地址 ${sign}`);
                     if (!url) return errorFn('找不到流地址\n' + sign);
                     const { headers, body, ok, status, statusText } = await fetch(url);
                     if (!ok) return errorFn(`请求失败 ${status} ${statusText}`);

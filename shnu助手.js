@@ -24,10 +24,15 @@
     $tm.urlFunc(/cas.shnu.edu.cn\/cas\/login\?service=/, () => {
         const cuid = $('#un'),
             pd = $('#pd'),
-            submit = $('.login_box_landing_btn');
-        setInterval(() => {
-            if (submit && cuid.value && pd.value) submit.click();
-        }, 1000);
+            btn = $('.login_box_landing_btn');
+        !async function submit() {
+            if (btn && cuid.value && pd.value) {
+                return btn.click();
+            } else {
+                await new Promise(resolve => setTimeout(resolve, 1e3));
+                await submit();
+            }
+        }();
     });
 
     //教务系统
@@ -71,24 +76,18 @@
         //定义变量
         const lesson_thead = $('#taskListForm thead'),
             lesson_tbody = $('#taskListForm tbody');
-        const query_info_elms = [...div.$('input[placeholder]', 1)], //length:4
-            query_data_elms = [...lesson_thead.children[0].$('input:not([id])', 1)]; //length:9
-        // const data_key_elms = [...lesson_thead.children[1].$('th', 1)].filter(e => !e.childElementCount); //length:10
+        const query_info_elms = div.$('input[placeholder]', 1), //length:4
+            query_data_elms = lesson_thead.children[0].$('input:not([id])', 1); //length:9
+        // const data_key_elms = lesson_thead.children[1].$('th', 1).filter(e => !e.childElementCount); //length:10
         window.Lessons = record();
 
-        function Lesson(id, elm, infos, data) {
-            this.id = id;
-            this.elm = elm;
-            this.infos = infos;
-            this.data = data;
-        }
         function record() {
             //elm => Lesson
-            return [...lesson_tbody.$('tr[class]', 1)].map(tr => {
+            return lesson_tbody.$('tr[class]', 1).map(tr => {
                 const id = tr.$('.gridselect>input').value;
                 const infos = contents[id].split('<br>').map(e => e.trim().replace(/ +/g, ' ').split(' '));
-                const data = [...tr.$('td:not([class])', 1)].map(e => e.innerText); //length:10
-                return new Lesson(id, tr, infos, data);
+                const data = tr.$('td:not([class])', 1).map(e => e.innerText); //length:10
+                return { id, elm: tr, infos, data };
             });
         }
         function filter() {

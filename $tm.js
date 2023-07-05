@@ -4,7 +4,7 @@
     'use strict';
     function $(Selectors, all) {
         const _this = this ? (this instanceof Node ? this : null) : document;
-        if (_this) return all ? _this.querySelectorAll(Selectors) : _this.querySelector(Selectors);
+        if (_this) return all ? [..._this.querySelectorAll(Selectors)] : _this.querySelector(Selectors);
         else throw `this对象类型错误 ${this}`;
     };
     function addProperties(locked, p, o) {
@@ -59,20 +59,54 @@
             else if (this > max) return max;
             else return this;
         },
-    })
+    });
+    const onloadFuncs = [];
     return {
-        $,
-        onloadFuncs: [],
         libs: {
             'axios': 'https://unpkg.com/axios/dist/axios.min.js',
             'Cookies': 'https://cdn.jsdelivr.net/npm/js-cookie/dist/js.cookie.min.js',
             'FFmpeg': 'https://unpkg.com/@ffmpeg/ffmpeg/dist/ffmpeg.min.js',
             'html2canvas': "https://html2canvas.hertzen.com/dist/html2canvas.min.js",
+            init() {
+                const elms = [];
+                function use() {
+                    return new Promise((resolve, reject) => {
+                        const { url, name } = this;
+                        if (typeof window[name] != 'undefined') return resolve(`库已存在 ${name}`);
+                        if (elms.some(e => e.src == url)) return resolve(`库正在加载 ${name}`);
+                        const elm = $tm.addElmsGroup({
+                            box: {
+                                tag: 'script', type: 'module',
+                                async: true, src: url,
+                                onload() { resolve(`加载成功 ${name}`) },
+                                onerror() { reject(`加载失败 ${name}`) },
+                            }
+                        });
+                        elms.push(elm);
+                        document.head.appendChild(elm);
+                    });
+                }
+                Object.keys(this).forEach(key => {
+                    if (key == 'init') return;
+                    this[key] = {
+                        name: key,
+                        url: this[key],
+                        use,
+                    }
+                });
+            },
         },
-        set onload(func) { this.onloadFuncs.push(func); },
+        set onload(fn) { onloadFuncs.push(fn); },
+        $,
+        init() {
+            this.addEventListeners();
+            this.libs.init();
+            return this;
+        },
         addEventListeners() {
+            this.libs;
             window.addEventListener('load', e => {
-                this.onloadFuncs.forEach(func => func());
+                onloadFuncs.forEach(fn => fn());
             }, true);
             window.addEventListener('error', e => {
                 if (e instanceof ErrorEvent) e.filename.includes('userscript.html') && this.tip(e.message, 3e3, 'red');
@@ -80,7 +114,6 @@
             window.addEventListener('unhandledrejection', e => {
                 if (e instanceof ErrorEvent) e.filename.includes('userscript.html') && this.tip(e.message, 3e3, 'red');
             }, true);
-            return this;
         },
         ObjectToFormData(obj) {
             const formData = new FormData();
@@ -90,6 +123,7 @@
             return formData;
         },
         addElms({ arr, defaults }) {
+            arr ??= [];
             defaults ??= { tag: 'div' };
             return arr.map(config => {
                 //迭代传参
@@ -108,31 +142,17 @@
             this.addElms({ arr, defaults }).map(e => container.appendChild(e));
             return container;
         },
-        async urlFunc(reg, func1, func2) {
-            reg.test(document.URL) ? func1?.() : func2?.();
-        },
-        useLib(name) {
-            return new Promise((resolve, reject) => {
-                if (typeof window[name] == 'undefined' && !$(`head script[id=lib_${name}]`)) {
-                    $('head').appendChild(this.addElms({
-                        arr: [{
-                            tag: 'script', type: 'module', id: `lib_${name}`,
-                            src: this.libs[name], async: true,
-                            onload: () => resolve(`加载成功 ${name}`),
-                            onerror: () => reject(`加载失败 ${name}`),
-                        }]
-                    })[0]);
-                } else resolve(`库已存在 ${name}`);
-            });
+        async urlFunc(reg, fn1, fn2) {
+            reg.test(document.URL) ? fn1?.() : fn2?.();
         },
         tip(info, duration = 1e3, color = 'orange') {
             const elm = document.body.appendChild(this.addElms({
                 arr: [{
-                    style: `position: fixed;top: 0%;left: 50%;transform: translate(-50%,-50%);
-                    background-color: ${color};color: black;
-                    margin: auto;padding: 5px 10px;border-radius: 10px;
-                    font-size: 20px;font-weight: bold;opacity: 0;
-                    transition: 300ms;z-index: 99999;display: block !important;`,
+                    style: `position: fixed; top: 0 %; left: 50 %; transform: translate(-50 %, -50 %);
+                        background- color: ${color}; color: black;
+                    margin: auto; padding: 5px 10px; border - radius: 10px;
+                    font - size: 20px; font - weight: bold; opacity: 0;
+                    transition: 300ms; z - index: 99999; display: block!important; `,
                     innerHTML: info,
                     init() { setTimeout(e => this.remove(), duration); },
                     animate() { this.style.cssText += 'opacity: 1;transform: translate(-50%,50%);' },
@@ -195,14 +215,14 @@
                 }
             })();
             console.table('下载文件类型', { blobType, type });
-            this.addElms({
-                arr: [{
+            this.addElmsGroup({
+                box: {
                     tag: 'a',
                     download: `${name || prompt(`${type}文件名:`) || '未命名'}.${type}`,
                     href: URL.createObjectURL(blob),
-                }]
-            })[0].click();
+                }
+            }).click();
         },
-    }.addEventListeners();
+    }.init();
 });
 const { $, ObjectToFormData } = window.$tm;

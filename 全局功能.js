@@ -17,231 +17,218 @@
     'use strict';
     //全局功能组
     !async function () {
-        if (self === top) { //不添加在iframe中
-            function findFrame(doc, func) { //不能解决iframe跨域问题
-                function get_frame() {
-                    return [...doc.getElementsByTagName('iframe'), ...doc.getElementsByTagName('frame')]
-                }
-                if (doc === null) {
-                    console.log('this.contentDocument == null');
-                    return false;
-                }
-                func();
-                for (let f of get_frame()) {
-                    findFrame(f.contentDocument, func)
-                }
+        //不添加在iframe中
+        if (self !== top) return;
+        //功能组
+        const hiddLeft = -98;
+        const btnArrInfo = [{
+            name: '设计模式',
+            func1() { document.designMode = 'on', this.style.backgroundColor = '#bbb' },
+            func2() { document.designMode = 'off', this.style.backgroundColor = '' },
+        }, {
+            name: '邮箱发送',
+            func1() {
+                const email = getSelection().toString() || prompt('请输入邮箱');
+                email && open('mailto:' + email);
+                this.did = !!email;
             }
-            //功能组
-            const hiddLeft = -98;
-            const btnArrInfo = [{
-                name: '设计模式',
-                func1() { document.designMode = 'on', this.style.backgroundColor = '#bbb' },
-                func2() { document.designMode = 'off', this.style.backgroundColor = '' },
-            }, {
-                name: '邮箱发送',
-                func1() {
-                    const email = getSelection().toString() || prompt('请输入邮箱');
-                    email && open('mailto:' + email);
-                    this.did = !!email;
-                }
-            }, {
-                name: '地址查找',
-                apis: [
-                    ['amap', 'https://ditu.amap.com/search?query=', true],
-                    ['google', 'https://www.google.com/maps/search/'],
-                    ['bing', 'https://cn.bing.com/maps/?setlang=zh-Hans&q='],
-                ],
-                func1() {
-                    let address = getSelection().toString() || prompt('请输入地址');
-                    if (!address) return this.did = false;
-                    this.group.attachment.innerHTML = `<b style="white-space: nowrap;">${address}</b>`
-                        + $tm.addElms({
-                            arr: this.apis.map(([innerText, href, autoClick]) => {
-                                return { innerText, href, autoClick };
-                            }),
-                            defaults: {
-                                tag: 'a',
-                                style: `text-decoration: none;display: block;padding: 2px;`,
-                                target: '_blank',
-                                init() {
-                                    this.href += encodeURI(address);
-                                    this.title = this.href;
-                                    this.autoClick && this.click();
-                                }
-                            }
-                        }).map(e => e.outerHTML).join('');
-                }
-            }, {
-                name: 'Bing AI',
-                addStyle: 'background-color:#2870ea;color:#fff',
-                func1() {
-                    let text = getSelection().toString();
-                    $tm.urlFunc(/bing.com\/search/, e => { text ||= $('#sb_form_q').value });
-                    text ||= prompt('问题:');
-                    open(`https://www.bing.com/search?showconv=0&q=${text}&cc=us`);
-                }
-            }, {
-                name: 'ChatGPT',
-                addStyle: 'background-color:#75a99c;color:#fff',
-                apis: [
-                    'https://chat2.jinshutuan.com/',
-                    'https://chatbot.theb.ai/',
-                    'https://chat.gptchinese.info/',
-                    'https://chat35.com/chat',
-                    'https://chatforai.com/',
-                    'https://chat.xeasy.me/',
-                ],
-                func1() {
-                    const question = getSelection().toString() || prompt('你的问题:');
-                    if (question == null) return this.did = false;
-                    window.addEventListener('focus', e => { navigator.clipboard.writeText(question) }, { once: true });
-                    this.group.attachment.innerHTML = `<b style="width: 300px;">${question}</b>`
-                        + $tm.addElms({
-                            arr: this.apis.map(e => { return { href: e } }),
-                            defaults: {
-                                tag: 'a',
-                                style: `text-decoration: none;display: block;padding: 2px;`,
-                                target: '_blank',
-                                init() { this.innerText = this.title = this.href; }
-                            }
-                        }).map(e => e.outerHTML).join('');
-                }
-            }, {
-                name: '运行代码',
-                addStyle: 'background-color:#f7df1e;color: #000;',
-                func1() {
-                    this.group.attachment.innerHTML = '';
-                    this.group.attachment.nodeListener(function (e) {
-                        const target = e[0].target;
-                        if (target == this) return;
-                        (target.nextElementSibling ?? target.previousElementSibling).style.width = target.style.width;
-                    }, { subtree: true, attributes: true });
-                    $tm.addElms({
-                        arr: [{
-                            title: '代码', addStyle: `border-bottom: 2px solid;resize: both;overflow: auto;`,
-                            textContent: 'return 0',
-                            onkeydown(e) {
-                                if (e.key != 'Enter' || e.shiftKey || e.ctrlKey) return;
-                                const res = (function (code) {
-                                    try { return new Function(code)(); }
-                                    catch (e) { return e; }
-                                })(this.textContent);
-                                console.log('code输出', res);
-                                boxGrp.$('code[title=输出]').textContent = '' + res;
-                            },
-                        }, {
-                            title: '输出',
-                        }],
+        }, {
+            name: '地址查找',
+            apis: [
+                ['amap', e => `https://ditu.amap.com/search?query=${e}`, true],
+                ['baidu', e => `https://map.baidu.com/search/${e}?querytype=s&da_src=shareurl&wd=${e}`,],
+                ['google', e => `https://www.google.com/maps/search/${e}`],
+                ['bing', e => `https://cn.bing.com/maps/?setlang=zh-Hans&q=${e}`],
+            ],
+            func1() {
+                let address = getSelection().toString() || prompt('请输入地址');
+                if (!address) return this.did = false;
+                this.group.attachment.innerHTML = `<b style="white-space: nowrap;">${address}</b>`
+                    + $tm.addElms({
+                        arr: this.apis.map(([innerText, fn, autoClick]) => {
+                            return { innerText, href: fn(encodeURI(address)), autoClick };
+                        }),
                         defaults: {
-                            tag: 'code',
-                            contentEditable: 'plaintext-only',
-                            style: `background-color: #eee;outline: none;padding: 5px;width: 300px;cursor: text;
-                                font-family: Consolas;font-size: inherit;color: inherit;`,
-                            init() { this.style.cssText += this.addStyle; }
+                            tag: 'a',
+                            style: `text-decoration: none;display: block;padding: 2px;`,
+                            target: '_blank',
+                            init() {
+                                this.title = this.href;
+                                this.autoClick && this.click();
+                            }
                         }
-                    }).forEach(e => this.group.attachment.appendChild(e));
-                },
-            }];
-            const btnGrpInfo = {
-                box: {
-                    name: '按钮组',
-                    addStyle: `width:100px;`,
-                },
-                arr: btnArrInfo,
-                defaults: {
-                    tag: 'input', type: 'button',
-                    style: `margin-bottom: 3px;padding:0;border:1px solid;border-radius: 10px;
+                    }).map(e => e.outerHTML).join('');
+            }
+        }, {
+            name: 'Bing AI',
+            addStyle: 'background-color:#2870ea;color:#fff',
+            func1() {
+                let text = getSelection().toString();
+                $tm.urlFunc(/bing.com\/search/, e => { text ||= $('#sb_form_q').value });
+                text ||= prompt('问题:');
+                open(`https://www.bing.com/search?showconv=0&q=${text}&cc=us`);
+            }
+        }, {
+            name: 'ChatGPT',
+            addStyle: 'background-color:#75a99c;color:#fff',
+            apis: [
+                'https://chat2.jinshutuan.com/',
+                'https://chatbot.theb.ai/',
+                'https://chat.gptchinese.info/',
+                'https://chat35.com/chat',
+                'https://chatforai.com/',
+                'https://chat.xeasy.me/',
+            ],
+            func1() {
+                const question = getSelection().toString() || prompt('你的问题:');
+                if (question == null) return this.did = false;
+                window.addEventListener('focus', e => { navigator.clipboard.writeText(question) }, { once: true });
+                this.group.attachment.innerHTML = `<b style="width: 300px;">${question}</b>`
+                    + $tm.addElms({
+                        arr: this.apis.map(e => { return { href: e } }),
+                        defaults: {
+                            tag: 'a',
+                            style: `text-decoration: none;display: block;padding: 2px;`,
+                            target: '_blank',
+                            init() { this.innerText = this.title = this.href; }
+                        }
+                    }).map(e => e.outerHTML).join('');
+            }
+        }, {
+            name: '运行代码',
+            addStyle: 'background-color:#f7df1e;color: #000;',
+            func1() {
+                this.group.attachment.innerHTML = '';
+                this.group.attachment.nodeListener(function (e) {
+                    const target = e[0].target;
+                    if (target == this) return;
+                    (target.nextElementSibling ?? target.previousElementSibling).style.width = target.style.width;
+                }, { subtree: true, attributes: true });
+                $tm.addElms({
+                    arr: [{
+                        title: '代码', addStyle: `border-bottom: 2px solid;resize: both;overflow: auto;`,
+                        textContent: 'return 0',
+                        onkeydown(e) {
+                            if (e.key != 'Enter' || e.shiftKey || e.ctrlKey) return;
+                            const res = (function (code) {
+                                try { return new Function(code)(); }
+                                catch (e) { return e; }
+                            })(this.textContent);
+                            console.log('code输出', res);
+                            boxGrp.$('code[title=输出]').textContent = '' + res;
+                        },
+                    }, {
+                        title: '输出',
+                    }],
+                    defaults: {
+                        tag: 'code',
+                        contentEditable: 'plaintext-only',
+                        style: `background-color: #eee;outline: none;padding: 5px;width: 300px;cursor: text;
+                                font-family: Consolas;font-size: inherit;color: inherit;`,
+                        init() { this.style.cssText += this.addStyle; }
+                    }
+                }).forEach(e => this.group.attachment.appendChild(e));
+            },
+        }];
+        const btnGrpInfo = {
+            box: {
+                name: '按钮组',
+                addStyle: `width:100px;`,
+            },
+            arr: btnArrInfo,
+            defaults: {
+                tag: 'input', type: 'button',
+                style: `margin-bottom: 3px;padding:0;border:1px solid;border-radius: 10px;
                         min-width:100%;max-width:100%;height:35px;background-color: field;
                         font:lighter 17px/20px caption;outline: none;`,
-                    func1() { },
-                    func2() { this.group.attachment.style.display = 'none'; },
-                    init() {
-                        this.value = this.name;
-                        this.title = this.name;
-                        this.style.cssText += this.addStyle ?? '';
-                        Object.defineProperty(this, 'group', { get: function () { return this.parentElement?.parentElement } });
-                    },
-                }
-            };
-            const boxGrp = $tm.addElmsGroup({
-                box: {
-                    id: '全局功能组',
-                    style: `position:fixed;top:0;left:${hiddLeft}px;z-index:${1e6};
+                func1() { },
+                func2() { this.group.attachment.style.display = 'none'; },
+                init() {
+                    this.value = this.name;
+                    this.title = this.name;
+                    this.style.cssText += this.addStyle ?? '';
+                    Object.defineProperty(this, 'group', { get: function () { return this.parentElement?.parentElement } });
+                },
+            }
+        };
+        const boxGrp = $tm.addElmsGroup({
+            box: {
+                id: '全局功能组',
+                style: `position:fixed;top:0;left:${hiddLeft}px;z-index:${1e6};
                         display:flex !important;
                         border:none;border-radius:10px;margin:0px`,
-                    init() {
-                        //调用this.attachment时显示附件
-                        Object.defineProperty(this, 'attachment', {
-                            get: function () {
-                                const elm = this.$('div[title=附件]');
-                                elm.style.display = 'flex';
-                                return elm;
-                            }
-                        });
-                    },
+                init() {
+                    //调用this.attachment时显示附件
+                    Object.defineProperty(this, 'attachment', {
+                        get: function () {
+                            const elm = this.$('div[title=附件]');
+                            elm.style.display = 'flex';
+                            return elm;
+                        }
+                    });
                 },
-                arr: [btnGrpInfo, {
-                    name: '附件',
-                    addStyle: `width: fit-content;height: fit-content;
+            },
+            arr: [btnGrpInfo, {
+                name: '附件',
+                addStyle: `width: fit-content;height: fit-content;
                         padding: 10px;border: 1px solid;
                         background-color: #fff;color: #000;
                         font-weight: normal;font-size: 16px;
                         display: none;flex-direction: column;`,
-                }],
-                defaults: {
-                    style: `margin: 5px;border-radius: 10px;`,
-                    init() {
-                        this.title = this.name;
-                        this.style.cssText += this.addStyle ?? '';
-                    },
-                }
-            });
-            const btnGrp = boxGrp.$('div[title=按钮组]');
-            btnGrp.addEventListener('mousedown', e => {
-                let ismove = false;
-                const dx = parseFloat(window.getComputedStyle(boxGrp).left) - e.clientX,
-                    dy = parseFloat(window.getComputedStyle(boxGrp).top) - e.clientY;
-                const moveFn = e => {
-                    ismove = true
-                    boxGrp.style.left = dx + e.clientX + 'px';
-                    boxGrp.style.top = dy + e.clientY + 'px';
-                };
-                document.addEventListener('mousemove', moveFn);
-                document.addEventListener('mouseup', e => {
-                    document.removeEventListener('mousemove', moveFn);
-                    if (parseFloat(boxGrp.style.left) < 0) boxGrp.style.left = hiddLeft + 'px';
-                    if (parseFloat(boxGrp.style.top) < 0) boxGrp.style.top = '0px';
-                    //btn单击
-                    if (!ismove && btnGrp.contains(e.target)) {
-                        switch (e.button) {
-                            case 0: { //左键
-                                const btn = e.target;
-                                if (btn.did = !btn.did) {
-                                    btn.func1();
-                                    [...btnGrp.$('input[type=button]', 1)].filter(e => e != btn).forEach(e => e.did = false);
-                                } else btn.func2();
-                                break;
-                            }
-                            case 1: break; //中键
-                            case 2: { //右键
-                                e.preventDefault();
-                                break;
-                            }
+            }],
+            defaults: {
+                style: `margin: 5px;border-radius: 10px;`,
+                init() {
+                    this.title = this.name;
+                    this.style.cssText += this.addStyle ?? '';
+                },
+            }
+        });
+        const btnGrp = boxGrp.$('div[title=按钮组]');
+        btnGrp.addEventListener('mousedown', e => {
+            let ismove = false;
+            const dx = parseFloat(window.getComputedStyle(boxGrp).left) - e.clientX,
+                dy = parseFloat(window.getComputedStyle(boxGrp).top) - e.clientY;
+            const moveFn = e => {
+                ismove = true
+                boxGrp.style.left = dx + e.clientX + 'px';
+                boxGrp.style.top = dy + e.clientY + 'px';
+            };
+            document.addEventListener('mousemove', moveFn);
+            document.addEventListener('mouseup', e => {
+                document.removeEventListener('mousemove', moveFn);
+                if (parseFloat(boxGrp.style.left) < 0) boxGrp.style.left = hiddLeft + 'px';
+                if (parseFloat(boxGrp.style.top) < 0) boxGrp.style.top = '0px';
+                //btn单击
+                if (!ismove && btnGrp.contains(e.target)) {
+                    switch (e.button) {
+                        case 0: { //左键
+                            const btn = e.target;
+                            if (btn.did = !btn.did) {
+                                btn.func1();
+                                btnGrp.$('input[type=button]', 1).filter(e => e != btn).forEach(e => e.did = false);
+                            } else btn.func2();
+                            break;
+                        }
+                        case 1: break; //中键
+                        case 2: { //右键
+                            e.preventDefault();
+                            break;
                         }
                     }
-                }, { once: true });
-            });
-            $tm.onload = () => { document.body.appendChild(boxGrp); };
-        }
+                }
+            }, { once: true });
+        });
+        $tm.onload = () => { document.body.appendChild(boxGrp); };
     }();
 
     //广告删除
     !async function () {
         function get({ className, id, tag }) {
             return [
-                ...className.flatMap(e => [...$(`.${e}`, 1)]),
+                ...className.flatMap(e => $(`.${e}`, 1)),
                 ...id.map(e => $(`#${e}`)),
-                ...tag.flatMap(kvw => [...$(kvw[0], 1)].filter(e => kvw[2].test(e[kvw[1]]))),
+                ...tag.flatMap(kvw => $(kvw[0], 1).filter(e => kvw[2].test(e[kvw[1]]))),
             ];
         }
         function del(e) {
@@ -250,19 +237,13 @@
             e.style.display = 'none';
             // e.remove();
         }
-        //删除广告iframe内文档
+        //广告iframe
         if ((self !== top) && location.href.includes('googleads')) {
             console.log('广告框架:', self.name);
-            self.open('about:blank', '_self');
+            self.open('data:image/svg+xml;utf8,<svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"></path>\n  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>\n</svg>', '_self');
         };
-        //监听添加node
-        /* const _appendChild = Node.prototype.appendChild;
-        Node.prototype.appendChild = function (node) {
-            if ((node.tagName == 'DIV' || node.tagName == 'A') && /广告/.test(node.innerHTML)) console.log('广告阻止: appendChild');
-            else return _appendChild.call(this, node);
-        }; */
         //DOM加载完后
-        $tm.onload = function () {
+        $tm.onload = () => {
             const stop = setInterval(() => {
                 const ads = get({
                     className: [
@@ -361,7 +342,14 @@
                     arr: [{
                         tag: 'input', type: 'button',
                         value: '清空会话', className: 'show-recent',
-                        onclick() { threads.$('cib-thread', 1).forEach(e => e.shadowRoot.$('.delete').click()); }
+                        onclick() {
+                            threads.$('cib-thread', 1).forEach(e => {
+                                e.shadowRoot.$('.delete').click();
+                                setTimeout(() => {
+                                    e.shadowRoot.$('.confirm').click();
+                                }, 50);
+                            });
+                        }
                     }]
                 })[0]);
                 //历史会话
@@ -370,11 +358,10 @@
                 threads.style.cssText += `overflow-y: auto;flex-wrap: nowrap;max-height: ${height}px;min-height: ${height}px;`;
                 surface.nodeListener(function () {
                     this.$('button').remove();
-                    threads.$('cib-thread', 1).forEach(e => {
-                        e.removeAttribute('hide');
-                        e.nodeListener(function () { this.removeAttribute('hide'); }, { attributes: true })
-                    });
                     return true;
+                }, { childList: true });
+                threads.nodeListener(function () {
+                    this.$('cib-thread', 1).forEach(e => e.removeAttribute('hide'));
                 }, { childList: true });
                 return true;
             }
@@ -394,27 +381,37 @@
 
     //chatGPT
     $tm.urlFunc(/chat.xeasy.me/, () => { $('#zsm').style.display = 'none'; });
-    $tm.urlFunc(/chat35.com/, () => {
-        $tm.useLib('Cookies').then(() => {
-            Object.keys(Cookies.get()).forEach(k => Cookies.remove(k));
-        });
+    $tm.urlFunc(/chat35.com/, async () => {
+        await $tm.libs['Cookies'].use();
+        Object.keys(Cookies.get()).forEach(k => Cookies.remove(k));
     });
     $tm.urlFunc(/.(gptchinese|chatgptbilibili)./, () => {
-        document.body.nodeListener(() => { if ($('#modals')) return $('#modals').style.display = 'none'; }, { childList: true });
+        document.body.nodeListener(() => {
+            const elm = $('#modals');
+            if (elm) return elm.style.display = 'none';
+        }, { childList: true });
     });
     $tm.urlFunc(/(chat2.jinshutuan.com|chatbot.theb.ai)/, () => {
         $tm.onload = () => {
             $('textarea').focus();
             $('.n-layout-scroll-container').style.cssText += 'max-width: 700px;';
             const wrapper = $('#image-wrapper');
-            if (wrapper?.childElementCount === 1) wrapper.$('div').style.display = 'none';
-            $('main').appendChild($tm.addElms({
-                arr: [{
-                    className: 'n-button', innerHTML: '清空历史',
-                    onclick() { localStorage.removeItem('chatStorage'); location.href = ''; },
-                    init() { this.style.cssText += $('main button').style.cssText; }
-                }],
-            })[0]);
+            if (wrapper?.childElementCount === 1) {
+                wrapper.$('div').style.display = 'none';
+            }
+            $('main').appendChild($tm.addElmsGroup({
+                box: {
+                    className: 'n-button',
+                    innerHTML: '清空历史',
+                    onclick() {
+                        localStorage.removeItem('chatStorage');
+                        location.reload();
+                    },
+                    init() {
+                        this.style.cssText += $('main button').style.cssText;
+                    }
+                }
+            }));
         };
     });
 
@@ -459,7 +456,7 @@
                         });
                     }
                 },
-                arr: [...selectElm.$('option', 1)].map(({ value, innerHTML }) => {
+                arr: selectElm.$('option', 1).map(({ value, innerHTML }) => {
                     return {
                         box: { innerHTML, },
                         arr: [{
@@ -539,5 +536,10 @@
                 });
             },
         }).init();
+    });
+
+    //heroicons
+    $tm.urlFunc(/heroicons.dev/, () => {
+        $('#root > aside.sidebar-2 > div').style.display = 'none';
     });
 })();
