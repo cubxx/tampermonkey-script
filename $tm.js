@@ -3,9 +3,7 @@
 }(window, function () {
     'use strict';
     function $(Selectors, all) {
-        const _this = this ? (this instanceof Node ? this : null) : document;
-        if (_this) return all ? [..._this.querySelectorAll(Selectors)] : _this.querySelector(Selectors);
-        else throw `this对象类型错误 ${this}`;
+        return all ? [...this.querySelectorAll(Selectors)] : this.querySelector(Selectors);
     };
     function addProperties(locked, p, o) {
         if (locked) {
@@ -28,6 +26,7 @@
                 subtree: true,
                 attributes: false,
             });
+            return 1;
         },
     });
     addProperties(1, Function.prototype, {
@@ -60,7 +59,7 @@
             else return this;
         },
     });
-    const onloadFuncs = [];
+    const onloadFns = [];
     return {
         libs: {
             'axios': 'https://unpkg.com/axios/dist/axios.min.js',
@@ -96,7 +95,22 @@
                 });
             },
         },
-        set onload(fn) { onloadFuncs.push(fn); },
+        set onload(fn) { onloadFns.push(fn); },
+        set invokeUntilNoError(fn) {
+            const fnName = fn.name || 'anonymous';
+            $tm.timer({
+                fn() {
+                    try {
+                        console.log(fnName + '函数开始调用');
+                        fn();
+                        this.stop();
+                        console.log(fnName + '函数停止调用');
+                    } catch (error) {
+                        error.message;
+                    }
+                }
+            }).start();
+        },
         $,
         init() {
             this.addEventListeners();
@@ -104,9 +118,8 @@
             return this;
         },
         addEventListeners() {
-            this.libs;
             window.addEventListener('load', e => {
-                onloadFuncs.forEach(fn => fn());
+                onloadFns.forEach(fn => fn());
             }, true);
             window.addEventListener('error', e => {
                 if (e instanceof ErrorEvent) e.filename.includes('userscript.html') && this.tip(e.message, 3e3, 'red');
@@ -114,13 +127,6 @@
             window.addEventListener('unhandledrejection', e => {
                 if (e instanceof ErrorEvent) e.filename.includes('userscript.html') && this.tip(e.message, 3e3, 'red');
             }, true);
-        },
-        ObjectToFormData(obj) {
-            const formData = new FormData();
-            Object.keys(obj).forEach(key => {
-                formData.append(key, obj[key]);
-            });
-            return formData;
         },
         addElms({ arr, defaults }) {
             arr ??= [];
@@ -145,20 +151,20 @@
         async urlFunc(reg, fn1, fn2) {
             reg.test(document.URL) ? fn1?.() : fn2?.();
         },
-        tip(info, duration = 1e3, color = 'orange') {
+        tip(info, duration = 2e3, color = 'orange') {
             const elm = document.body.appendChild(this.addElms({
                 arr: [{
-                    style: `position: fixed; top: 0 %; left: 50 %; transform: translate(-50 %, -50 %);
-                        background- color: ${color}; color: black;
-                    margin: auto; padding: 5px 10px; border - radius: 10px;
-                    font - size: 20px; font - weight: bold; opacity: 0;
-                    transition: 300ms; z - index: 99999; display: block!important; `,
+                    style: `position: fixed; top: 0%; left: 50%; transform: translate(-50%, -50%);
+                        background-color: ${color}; color: black;
+                    margin: auto; padding: 5px 10px; border-radius: 10px;
+                    font-size: 20px; font-weight: bold; opacity: 0;
+                    transition: 300ms; z-index: 99999; display: block!important; `,
                     innerHTML: info,
                     init() { setTimeout(e => this.remove(), duration); },
                     animate() { this.style.cssText += 'opacity: 1;transform: translate(-50%,50%);' },
                 }]
             })[0]);
-            setTimeout(e => elm.animate(), 5);
+            setTimeout(e => elm.animate(), 100);
             return elm;
         },
         postMessage({ url, data, signal, func }) {
@@ -186,21 +192,22 @@
         timer(config) {
             return Object.assign({
                 state: 'inactive',
+                interval: 1e3,
                 start() {
                     if (this.state == 'running') throw 'timer.start无法执行: ' + this.state;
                     this.state = 'running';
-                    this.st = +new Date();
-                    this.timer = setInterval(() => {
-                        this.log(+new Date() - this.st);
-                    }, 1e3);
+                    this.startTime = +new Date();
+                    this.timerID = setInterval(() => {
+                        this.fn(+new Date() - this.startTime);
+                    }, this.interval);
                 },
-                log(timeStamp) {
-                    return timeStamp;
+                fn(duration) {
+                    return duration;
                 },
                 stop() {
                     if (this.state == 'inactive') throw 'timer.stop无法执行: ' + this.state;
                     this.state = 'inactive';
-                    clearInterval(this.timer);
+                    clearInterval(this.timerID);
                 }
             }, config);
         },
@@ -225,4 +232,4 @@
         },
     }.init();
 });
-const { $, ObjectToFormData } = window.$tm;
+const $ = window.$tm.$.bind(document);

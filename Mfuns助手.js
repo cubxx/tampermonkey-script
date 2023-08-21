@@ -4,7 +4,7 @@
 // @version      0.1
 // @description  用于提升网站体验
 // @author       Cubxx
-// @include      /https\:\/\/www\.mfuns1\.[a-zA-Z]+\//
+// @include      /https\:\/\/www\.mfuns\.[a-zA-Z]+\//
 // @require      https://cubxx.github.io/My-Tampermonkey-Script/$tm.js
 // @require      file:///D:/Learn/JavaScript/My-Tampermonkey-Script/Mfuns%E5%8A%A9%E6%89%8B.js
 // @icon         https://m.kms233.com/static/icon/icon.png
@@ -12,48 +12,6 @@
 // ==/UserScript==
 
 (async function () {
-    await $tm.libs['axios'].use().then(res => {
-        //每日任务
-        $tm.urlFunc(/\?$/, async function () {
-            //签到并获得奖励
-            axios.post('./wp-content/themes/LightSNS/module/action/sign.php', ObjectToFormData({ sign: 1 })).then(res => { console.log('已签到') });
-            new Date().getDate() == 30 && [0, 1, 2, 3, 4].forEach(n => {
-                axios.post('./wp-content/themes/LightSNS/module/action/sign-treasure.php', ObjectToFormData({ number: n }))
-            });
-            //点赞评论
-            // axios.post(' ./wp-content/themes/LightSNS/module/action/comment-up.php', ObjectToFormData({
-            //     type: 2, comment_id: 934134
-            // })).then(res => { console.log(res.data.msg) });
-        });
-    });
-
-    //删除右下角气泡
-    $('body').nodeListener((mutationsList, observer) => {
-        for (let mutation of mutationsList) {
-            if (mutation.type === 'childList') {
-                let elm = mutation.addedNodes[0] || mutation.target;
-                if (elm.id == 'jinsom-plugin-barrage') {
-                    elm.remove();
-                    console.log('已删除右下角气泡');
-                    // observer.disconnect();
-                    break;
-                }
-            }
-        }
-    }, { attributes: true, childList: true, subtree: true });
-
-    //禁止自动播放音乐
-    $tm.urlFunc(/author/, () => { jinsom_memeber_bg_music.pause(); });
-
-    //视频播放器设置音量
-    $('.jinsom-post-video', 1).forEach(e => {
-        let doc = e.$('iframe').contentDocument;
-        new MutationObserver(function () {
-            let v = doc.querySelector('video');
-            if (v) v.volume = 0.3;
-        }).observe(doc.body, { childList: true });
-    });
-
     // 搬运工具
     !async function () {
         //创建输入框
@@ -173,5 +131,4 @@
             } else return false;
         }
     }();
-
 })();
