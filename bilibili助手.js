@@ -634,12 +634,16 @@
         }, {
             name: '搬运',
             onclick() {
+                const { bvid, desc, pic, title, copyright, owner } = vd();
                 $tm.postMessage({
-                    url: 'https://www.mfuns1.cn',
-                    data: vd().bvid,
-                    signal: 'OK',
-                    func(d) {
-                        vtip(`发送${d}`)
+                    url: 'https://www.mfuns.net/create/video',
+                    data: {
+                        bvid, desc, pic, title, copyright,
+                        owner_name: owner.name,
+                    },
+                    signal: 'mfuns get',
+                    fn(data) {
+                        vtip(`发送${data.bvid}`)
                     },
                 }).then(e => vtip('停止发送'));
             }

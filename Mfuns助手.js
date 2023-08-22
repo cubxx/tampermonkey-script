@@ -4,16 +4,36 @@
 // @version      0.1
 // @description  用于提升网站体验
 // @author       Cubxx
-// @include      /https\:\/\/www\.mfuns\.[a-zA-Z]+\//
+// @include      /https\:\/\/(www|m)\.mfuns\.net\//
 // @require      https://cubxx.github.io/My-Tampermonkey-Script/$tm.js
-// @require      file:///D:/Learn/JavaScript/My-Tampermonkey-Script/Mfuns%E5%8A%A9%E6%89%8B.js
 // @icon         https://m.kms233.com/static/icon/icon.png
 // @grant        none
 // ==/UserScript==
 
-(async function () {
-    // 搬运工具
+(function () {
+    // 签到
     !async function () {
+        const signKey = '上次签到时间';
+        if (localStorage.getItem(signKey) == new Date().toDateString()) {
+            // $tm.tip('今日已签到');
+            return;
+        }
+        await $tm.libs.axios.use();
+        axios.get('https://api.mfuns.net/v1/sign/sign', {
+            headers: {
+                'Authorization': 'M25zRVJOOWtuRWtiJmlkJjgyMDAmYWYxZjJlODQwNDMyMDlmYjgyYjcwODljOGVjYmJiMGU='
+            }
+        }).then(res => {
+            localStorage.setItem(signKey, new Date().toDateString());
+            console.log('签到 ', res);
+            $tm.tip('签到成功');
+        }, err => {
+            console.log('签到 ', err);
+            $tm.tip('签到失败');
+        });
+    }();
+    // 视频搬运工具
+    /* !async function () {
         //创建输入框
         const [inp, btn] = $tm.addElms({
             arr: [{
@@ -130,5 +150,59 @@
                 } else debugger;
             } else return false;
         }
-    }();
+    }; */
+    $tm.urlFunc(/www.mfuns.net\/create\/video/, () => {
+        const bv_api = 'https://video_api.kms233.com/bili/';
+        const _main = main.debounce(1e3);
+        window.addEventListener('message', e => {
+            if (e.origin == 'https://www.bilibili.com') {
+                console.log('收到信号', e.data);
+                _main(e.data);
+                e.source.postMessage('mfuns get', e.origin); //发送回应信号                
+            }
+        });
+        // fns
+        async function main({ bvid, desc, pic, title, copyright, owner_name }) {
+            const dislogs = $('.mf-modal-dialog', 1);
+            const [formElm, uploadElm] = $('.mf-create-video').children;
+            formElm[0].value = title;
+            formElm[0].dispatchEvent(new InputEvent("input"));
+            formElm[3].click();
+            formElm.$('div[contenteditable=true]').textContent = (copyright == 1 ? [bvid, `作者：${owner_name}`] : []).concat(desc).join('\n');
+            formElm[1].click();
+            await waitFn(() => choose_dropdown('网络链接'));
+            await waitFn(() => fill_dialog(dislogs[1], pic.replace('http://', 'https://')));
+            uploadElm.$('button').click();
+            await waitFn(() => choose_dropdown('网络链接'));
+            await waitFn(() => fill_dialog(dislogs[3], title, bv_api + bvid));
+        }
+        function choose_dropdown(text) {
+            const elm = $('.v-binder-follower-content', 1).filter(e => e.childElementCount)[0];
+            elm.$('.n-dropdown-option-body', 1).filter(e => e.innerText == text)[0].click();
+            // if (!dislogs.filter(e => e.childElementCount).length) throw '未打开dialog';
+        }
+        function fill_dialog(dialog, ...args) {
+            const content = dialog.$('.mf-modal-dialog__container-content');
+            content.$('input', 1).map((e, i) => {
+                e.value = args[i];
+                e.dispatchEvent(new InputEvent("input"));
+            });
+            const btn = content.$('button', 1).filter(e => e.innerText != '取消')[0];
+            btn.click();
+            btn.parentElement.nodeListener(list => {
+                list.forEach(({ addedNodes }) => {
+                    addedNodes.forEach(e => e.click());
+                });
+                return 1;
+            }, { childList: true });
+        }
+        function waitFn(fn) {
+            return new Promise(resolve => {
+                $tm.invokeUntilNoError = () => {
+                    fn();
+                    resolve('ok');
+                };
+            });
+        }
+    });
 })();

@@ -1,5 +1,8 @@
 !function (e, t) {
-    if (typeof e.$tm == 'undefined') e.$tm = t();
+    if (typeof e.$tm == 'undefined') {
+        e.$tm = t();
+        e.$ = e.$tm.$.bind(document);
+    }
 }(window, function () {
     'use strict';
     function $(Selectors, all) {
@@ -18,8 +21,8 @@
     addProperties(0, Node.prototype, {
         $,
         nodeListener(func, config) {
-            const MO = new MutationObserver((...e) => {
-                func.call(this, ...e) && MO.disconnect();
+            const MO = new MutationObserver(mutationList => {
+                func.call(this, mutationList) && MO.disconnect();
             });
             MO.observe(this, config ?? {
                 childList: true,
@@ -30,23 +33,23 @@
         },
     });
     addProperties(1, Function.prototype, {
+        // 防抖
         debounce(delay) {
             let timer = null;
-            const _this = this;
-            return function (...args) {
+            return (...args) => {
                 clearTimeout(timer);
                 timer = setTimeout(() => {
-                    _this(...args);
+                    this(...args);
                 }, delay);
             };
         },
+        // 节流
         throttle(delay) {
             let timer = null;
-            const _this = this;
-            return function (...args) {
+            return (...args) => {
                 if (timer) return;
                 timer = setTimeout(() => {
-                    _this(...args);
+                    this(...args);
                     timer = null;
                 }, delay);
             };
@@ -98,7 +101,7 @@
         set onload(fn) { onloadFns.push(fn); },
         set invokeUntilNoError(fn) {
             const fnName = fn.name || 'anonymous';
-            $tm.timer({
+            this.timer({
                 fn() {
                     try {
                         console.log(fnName + '函数开始调用');
@@ -167,24 +170,25 @@
             setTimeout(e => elm.animate(), 100);
             return elm;
         },
-        postMessage({ url, data, signal, func }) {
+        postMessage({ url, data, signal, fn }) {
             return new Promise((resolve, reject) => {
-                let stop = false;
+                let isStop = false;
                 const win = window.open(url),
                     key = setInterval(() => {
+                        if (!win) { reject('win被拦截'); finish(); }
                         win.postMessage(data, url);
-                        func?.(data);
-                        if (win.closed) { reject(); endFn(); }
-                        if (stop) { resolve(); endFn(); }
-                    }, 1e3);
-                window.addEventListener('message', fn);
-                function fn(e) {
-                    if (e.origin == url && e.data == signal) {
-                        stop = true;
+                        fn?.(data);
+                        if (win.closed) { reject('win被关闭'); finish(); }
+                        if (isStop) { resolve(); finish(); }
+                    }, 10);
+                window.addEventListener('message', eventFn);
+                function eventFn(e) {
+                    if (e.origin == new URL(url).origin && e.data == signal) {
+                        isStop = true;
                     }
                 }
-                function endFn() {
-                    window.removeEventListener('message', fn);
+                function finish() {
+                    window.removeEventListener('message', eventFn);
                     clearInterval(key);
                 }
             });
@@ -232,4 +236,3 @@
         },
     }.init();
 });
-const $ = window.$tm.$.bind(document);
