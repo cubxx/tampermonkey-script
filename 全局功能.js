@@ -24,12 +24,12 @@
             {
                 name: '设计模式',
                 func1() {
-                    document.designMode = 'on',
-                        this.style.backgroundColor = '#bbb'
+                    document.designMode = 'on';
+                    this.style.backgroundColor = '#bbb';
                 },
                 func2() {
-                    document.designMode = 'off',
-                        this.style.backgroundColor = ''
+                    document.designMode = 'off';
+                    this.style.backgroundColor = '';
                 },
             }, {
                 name: '邮箱发送',
@@ -76,41 +76,28 @@
                 func1() {
                     let text = getSelection().toString();
                     $tm.urlFunc(/bing.com\/search/, e => {
-                        text ||= $('#sb_form_q').value
+                        text ||= $('#sb_form_q')?.value
                     });
-                    text ||= prompt('问题:');
-                    open(`https://www.bing.com/search?showconv=0&q=${text}&cc=us`);
+                    open(`https://www.bing.com/search?showconv=1&q=${text}&cc=us`);
                 }
             }, {
-                name: 'ChatGPT',
+                name: 'AI',
                 addStyle: 'background-color:#75a99c;color:#fff',
                 apis: [
-                    'https://chat2.jinshutuan.com/',
-                    'https://chatbot.theb.ai/',
+                    'https://yiyan.baidu.com/',
                     'https://chat.gptchinese.info/',
-                    'https://chat35.com/chat',
+                    'https://chat35.com/chat/',
                     'https://chatforai.com/',
                     'https://chat.xeasy.me/',
                 ],
                 func1() {
-                    const question = getSelection().toString() || prompt('你的问题:');
-                    if (question == null)
-                        return this.did = false;
-                    window.addEventListener('focus', e => {
-                        navigator.clipboard.writeText(question)
-                    }, {
-                        once: true
-                    });
+                    const question = getSelection().toString();
                     this.group.attachment.innerHTML = `<b style="width: 300px;">${question}</b>`
                         + $tm.addElms({
-                            arr: this.apis.map(e => {
-                                return {
-                                    href: e
-                                }
-                            }),
+                            arr: this.apis.map(href => ({ href })),
                             defaults: {
                                 tag: 'a',
-                                style: `text-decoration: none;display: block;padding: 2px;`,
+                                style: `text-decoration: none;display: block;padding: 2px;color: #00654c;`,
                                 target: '_blank',
                                 init() {
                                     this.innerText = this.title = this.href;
@@ -119,56 +106,12 @@
                         }).map(e => e.outerHTML).join('');
                 }
             }, {
-                name: '运行代码',
-                addStyle: 'background-color:#f7df1e;color: #000;',
-                func1() {
-                    this.group.attachment.innerHTML = '';
-                    this.group.attachment.nodeListener(function (e) {
-                        const target = e[0].target;
-                        if (target == this)
-                            return;
-                        (target.nextElementSibling ?? target.previousElementSibling).style.width = target.style.width;
-                    }, {
-                        subtree: true,
-                        attributes: true
-                    });
-                    $tm.addElms({
-                        arr: [{
-                            title: '代码',
-                            addStyle: `border-bottom: 2px solid;resize: both;overflow: auto;`,
-                            textContent: 'return 0',
-                            onkeydown(e) {
-                                if (e.key != 'Enter' || e.shiftKey || e.ctrlKey)
-                                    return;
-                                const res = (function (code) {
-                                    try {
-                                        return new Function(code)();
-                                    } catch (e) {
-                                        return e;
-                                    }
-                                })(this.textContent);
-                                console.log('code输出', res);
-                                boxGrp.$('code[title=输出]').textContent = '' + res;
-                            },
-                        }, {
-                            title: '输出',
-                        }
-                        ],
-                        defaults: {
-                            tag: 'code',
-                            contentEditable: 'plaintext-only',
-                            style: `background-color: #eee;outline: none;padding: 5px;width: 300px;cursor: text;
-                                font-family: Consolas;font-size: inherit;color: inherit;`,
-                            init() {
-                                this.style.cssText += this.addStyle;
-                            }
-                        }
-                    }).forEach(e => this.group.attachment.appendChild(e));
-                },
-            }, {
                 name: '更新Flash',
-                addStyle: 'background-color:#5d0f0b;color: #fff;',
-                func1() { open('https://www.flash.cn/download-wins') },
+                addStyle: 'background-color: #5d0f0b;color: #fff;',
+                func1() {
+                    open('https://www.flash.cn/download-wins');
+                    this.did = 0;
+                },
             }
         ];
         const btnGrpInfo = {
@@ -262,17 +205,13 @@
                                 btn.func2();
                             break;
                         }
-                        case 1:
-                            break; //中键
                         case 2: { //右键
-                            e.preventDefault();
+                            e.stopImmediatePropagation();
                             break;
                         }
                     }
                 }
-            }, {
-                once: true
-            });
+            }, { once: true });
         });
         $tm.onload = () => {
             document.body.appendChild(boxGrp);
@@ -361,6 +300,7 @@
                 const url = sp.get('url') || sp.get('pfurl');
                 return url.includes('://') ? url : 'https://' + url;
             }, //QQ
+            'gitee.com/link': sp => sp.get('target'), // gitee
             'www.jianshu.com/go-wild': sp => sp.get('url'), //简书
         };
         for (let host in arr) {

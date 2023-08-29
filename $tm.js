@@ -1,11 +1,10 @@
-!function (e, t) {
-    if (typeof e.$tm == 'undefined') {
-        e.$tm = t();
-        e.$ = e.$tm.$.bind(document);
-    }
-}(window, function () {
+const $tm = (function () {
     'use strict';
     function $(Selectors, all) {
+		if (typeof Selectors != 'string') {
+			// throw '选择器不是string';
+			return;
+		}
         return all ? [...this.querySelectorAll(Selectors)] : this.querySelector(Selectors);
     };
     function addProperties(locked, p, o) {
@@ -67,7 +66,7 @@
         libs: {
             'axios': 'https://unpkg.com/axios/dist/axios.min.js',
             'Cookies': 'https://cdn.jsdelivr.net/npm/js-cookie/dist/js.cookie.min.js',
-            'FFmpeg': 'https://unpkg.com/@ffmpeg/ffmpeg/dist/ffmpeg.min.js',
+            'FFmpeg': 'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js', // 0.11.6
             'html2canvas': "https://html2canvas.hertzen.com/dist/html2canvas.min.js",
             init() {
                 const elms = [];
@@ -235,4 +234,6 @@
             }).click();
         },
     }.init();
-});
+})();
+const $ = $tm.$.bind(document);
+if (typeof window.$tm == 'undefined') { window.$tm = $tm; }

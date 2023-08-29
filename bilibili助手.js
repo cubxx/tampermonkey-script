@@ -90,26 +90,30 @@
             }
         });
     }
-    function vtip(text, sign) {
-        sign ??= text;
-        const area = $('.bpx-player-tooltip-area');
-        const elm = area.$('.bpx-player-tooltip-item', 1).find(e => e.sign == sign)
-            ?? area.appendChild($tm.addElms({
-                arr: [{
-                    sign,
-                    tag: 'div',
-                    className: 'bpx-player-tooltip-item',
-                    style: `position: relative;top: -310px;margin: auto;visibility: visible;opacity: 1;`,
-                    innerHTML: `<div class="bpx-player-tooltip-title"></div>`,
-                    update(text) {
-                        elm.$('.bpx-player-tooltip-title').innerHTML = text;
-                        this.stop && clearTimeout(this.stop);
-                        this.stop = setTimeout(() => this.remove(), 2.5e3);
-                    },
-                }]
-            })[0]);
-        elm.update(text);
+    function tooltip(text) {
+        const hasTooltip = player.tooltip.update('shortcut', { title: text });
+        hasTooltip || player.tooltip.create({
+            title: text,
+            name: 'shortcut',
+            position: 5,
+            target: player.getElements().videoArea,
+        });
     }
+    const toast = function () {
+        const sign_iid_pairs = new Map();
+        return function (text, sign) {
+            if (sign_iid_pairs.has(sign)) {
+                const iid = sign_iid_pairs.get(sign);
+                const hasToast = player.toast.update(iid, { text });
+                if (hasToast) {
+                    return iid;
+                }
+            }
+            const iid = player.toast.create({ text });
+            sign && sign_iid_pairs.set(sign, iid);
+            return iid;
+        }
+    }();
     function buttonGroup(configs) {
         const group = $tm.addElmsGroup({
             box: {
@@ -204,11 +208,11 @@
                             return videoElm.getRenderCanvas();
                     }
                 }().toBlob(blob => {
-                    _this.panel.$('input[type=radio]', 1).find(e => e.checked).value == '本地' ?
-                        $tm.download(blob) :
-                        navigator.clipboard.write([new ClipboardItem({
+                    _this.panel.$('input[type=radio]', 1).find(e => e.checked).value == '本地'
+                        ? $tm.download(blob)
+                        : navigator.clipboard.write([new ClipboardItem({
                             'image/png': blob
-                        })]).then(e => vtip('已截图'));
+                        })]).then(e => tooltip('已截图'));
                 }, 'image/png');
             },
             panel: {
@@ -278,8 +282,8 @@
                 }, {
                     box: {
                         tag: 'label',
-                        innerHTML: '是否转化格式',
-                        title: '不建议勾选\n还不如用格式工厂',
+                        innerHTML: '转化格式',
+                        title: '不建议勾选',
                     },
                     arr: [{
                         tag: 'input',
@@ -293,23 +297,18 @@
                 this.panel.$('cite').innerHTML = videoElm.tagName;
                 if (videoElm.tagName == 'VIDEO') {
                     this.recorder = Object.assign(new MediaRecorder(videoElm.captureStream()), {
-                        ondataavailable: ({
-                            data: blob
-                        }) => {
+                        ondataavailable: ({ data: blob }) => {
+                            console.log('录制资源', blob);
                             if (this.panel.$('input[type=checkbox]').checked) {
                                 $tm.libs['FFmpeg'].use().then(async () => {
                                     const ffmpeg = FFmpeg.createFFmpeg({});
                                     await ffmpeg.load();
-                                    const timer = $tm.timer({
-                                        fn(ts) {
-                                            vtip(`正在转换格式${blob.type} ${parseInt(ts / 1e3)}s`, '录制-转换格式');
-                                        }
+                                    ffmpeg.setProgress(({ ratio }) => {
+                                        toast(`正在转换格式 ${1e2 * ratio.toFixed(2)}%`, '录制-转换格式');
                                     });
-                                    timer.start(); //开始计时
-                                    ffmpeg.FS('writeFile', 'input.mkv', new Uint8Array(await blob.arrayBuffer()));
-                                    await ffmpeg.run('-i', 'input.mkv', '-c:v', 'copy', '-c:a', 'aac', '-f', 'mp4', 'output.mp4');
-                                    timer.stop(); //停止计时
-                                    return ffmpeg.FS('readFile', 'output.mp4').buffer;
+                                    ffmpeg.FS('writeFile', 'input', new Uint8Array(await blob.arrayBuffer()));
+                                    await ffmpeg.run('-i', 'input', '-c:v', 'libx264', '-c:a', 'aac', '-f', 'mp4', 'output');
+                                    return ffmpeg.FS('readFile', 'output').buffer;
                                 }).then(buffer => {
                                     $tm.download(new Blob([buffer], {
                                         type: 'video/mp4'
@@ -352,6 +351,14 @@
             }
         }];
     $tm.urlFunc(/www.bilibili.com\/video/, () => {
+        function vd() {
+            const vd = __INITIAL_STATE__.videoData;
+            if (vd) {
+                return vd;
+            } else {
+                throw 'vd 失效';
+            }
+        }
         //再次除广告
         $('.left-container-under-player').nodeListener(function () {
             setTimeout(deleteADs, 1e3);
@@ -379,15 +386,9 @@
         wideScreenFn('.bpx-player-ctrl-btn[aria-label=宽屏]');
         // 屏蔽
         $('.bpx-player-cmd-dm-wrap').style.display = 'none';
+        // 开字幕
+        vd().subtitle.list.length && $('.bpx-player-ctrl-btn[aria-label=字幕]>div>span').click();
         // 按钮组
-        function vd() {
-            const vd = __INITIAL_STATE__.videoData;
-            if (vd) {
-                return vd;
-            } else {
-                throw 'vd 失效';
-            }
-        }
         const btnGrp = buttonGroup([...publicBtnArr, {
             name: '封面',
             onclick() {
@@ -408,30 +409,19 @@
                 // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/videostream_url.html
                 !async function () {
                     // 请求流地址
-                    const {
-                        cid,
-                        page
-                    } = getPageData();
-                    const default_params_obj = {
-                        cid,
-                        bvid: vd().bvid,
-                    },
+                    const { cid, page } = getPageData();
+                    const default_params_obj = { cid, bvid: vd().bvid, },
                         panel_params_obj = this.panel.$('select', 1).reduce((acc, e) => {
                             acc[e.name] = +e.value;
                             return acc;
                         }, {});
                     const params_obj = Object.assign(default_params_obj, panel_params_obj);
+                    toast('请求流地址');
                     console.log('流地址请求参数', params_obj);
-                    const {
-                        data,
-                        message
-                    } = await fetch('https://api.bilibili.com/x/player/playurl?' + new URLSearchParams(params_obj).toString(), {
+                    const { data, message } = await fetch('https://api.bilibili.com/x/player/playurl?' + new URLSearchParams(params_obj).toString(), {
                         credentials: 'include',
                     }).then(res => res.json());
-                    const {
-                        durl,
-                        dash
-                    } = data;
+                    const { durl, dash } = data;
                     // 获取文件
                     const fliename = [vd().title, vd().owner.name, 'p' + page, null].join('-');
                     if (durl) {
@@ -444,10 +434,10 @@
                             aUrl = dash.audio.find(e => e.id == params_obj.audio_qn)?.baseUrl;
                         //是否转换格式
                         if (this.panel.$('input[type=checkbox]').checked) {
+                            toast('加载FFmpeg');
                             await $tm.libs['FFmpeg'].use();
                             const ffmpeg = FFmpeg.createFFmpeg({});
                             await ffmpeg.load();
-                            vtip('FFmpeg加载完毕');
                             //下载不同内容
                             switch (params_obj.content) {
                                 case 0:
@@ -464,22 +454,16 @@
                                     break;
                             }
                             async function convertFormat(promise, MIMEtype, newFormat, convertArgs) {
-                                const res = await promise;
-                                if (res instanceof Blob)
-                                    res = [res];
-                                const fileArgs = await Promise.all(res.map(async (blob, i) => {
+                                const blobs = await promise; // blob[] | blob
+                                const fileArgs = await Promise.all([blobs].flat().map(async (blob, i) => {
                                     const name = i + '.m4s';
                                     ffmpeg.FS('writeFile', name, new Uint8Array(await blob.arrayBuffer()));
                                     return ['-i', name];
                                 }));
-                                const timer = $tm.timer({
-                                    fn(ts) {
-                                        vtip(`正在转换格式${newFormat} ${parseInt(ts / 1e3)}s`, '转换格式');
-                                    }
+                                ffmpeg.setProgress(({ ratio }) => {
+                                    toast(`正在转换格式${newFormat} ${1e2 * ratio.toFixed(2)}%`, '下载-转换格式');
                                 });
-                                timer.start();
                                 await ffmpeg.run(...fileArgs.flat(), ...convertArgs, '-f', newFormat, 'output');
-                                timer.stop();
                                 const buffer = await ffmpeg.FS('readFile', 'output').buffer;
                                 $tm.download(new Blob([buffer], {
                                     type: MIMEtype
@@ -516,9 +500,9 @@
                         return vd().pages[0];
                 }
                 async function getBlob(url, sign = 'data') {
-                    vtip(`请求流地址 ${sign}`);
+                    // toast(`获取资源 ${sign}`);
                     if (!url)
-                        return errorFn('找不到流地址\n' + sign);
+                        return errorFn('找不到资源\n' + sign);
                     const {
                         headers,
                         body,
@@ -527,34 +511,31 @@
                         statusText
                     } = await fetch(url);
                     if (!ok)
-                        return errorFn(`请求失败 ${status} ${statusText}`);
+                        return errorFn(`获取失败 ${status} ${statusText}`);
                     // return await res.blob();
                     return await new Promise((resolve, reject) => {
                         const totalBytes = +headers.get('content-length');
                         let downloadBytes = 0;
                         let chunks = [];
                         const reader = body.getReader();
-                        const throttle = vtip.throttle(1e3); //节流 定时执行
+                        const freq = 1e2; // 获取进度的周期
+                        const toast_throttle = toast.throttle(freq); //节流
                         !function pump() {
-                            reader.read().then(({
-                                value,
-                                done
-                            }) => {
+                            reader.read().then(({ value, done }) => {
                                 if (done) {
-                                    vtip.throttle(1e3)(`获取完成${sign}`, sign);
                                     resolve(new Blob(chunks));
                                     return;
                                 }
                                 downloadBytes += value.length;
                                 chunks.push(value);
-                                throttle(`正在获取资源${sign} ${(1e2 * downloadBytes / totalBytes).toFixed(0)}%`, sign);
+                                toast_throttle(`正在获取资源${sign} ${(1e2 * downloadBytes / totalBytes).toFixed(0)}%`, sign);
                                 pump();
                             }).catch(reject);
                         }();
                     });
                 }
                 function errorFn(e) {
-                    vtip(`<i style="font-size: 10px;color: yellow;">${e}</i> `);
+                    toast(e + '');
                     console.error(e);
                     return Promise.reject(e);
                 }
@@ -643,9 +624,9 @@
                     },
                     signal: 'mfuns get',
                     fn(data) {
-                        vtip(`发送${data.bvid}`)
+                        tooltip(`发送${data.bvid}`)
                     },
-                }).then(e => vtip('停止发送'));
+                }).then(e => tooltip('停止发送'));
             }
         }]);
         btnGrp.update();
