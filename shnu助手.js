@@ -38,16 +38,23 @@
     //教务系统
     $tm.urlFunc(/^https\:\/\/course.shnu.edu.cn\/eams\/home.action$/, () => {
         const stop = setInterval(() => {
-            const td = $('.scroll_box', 1)[3];
-            if (td) {
-                const btn = td.children[0].children[0];
-                btn.innerText += '\n(双击运行脚本)';
-                btn.ondblclick = function () {
-                    open(`${location.href}&pageNo=1&pageSize=10000`);
-                };
-                clearInterval(stop);
+            const grp = $('.menu > li', 1).filter(e => e.innerText === '公共服务')[0];
+            const btn = grp?.$('li > a', 1).filter(e => e.innerText === '全校开课查询')[0];
+            if (!btn) {
+                return;
             }
-        }, 1000);
+            let currentUrl = '';
+            Object.assign(btn, {
+                innerText: btn.innerText + '\n(双击运行脚本)',
+                onmouseenter() {
+                    currentUrl = location.href;
+                },
+                ondblclick() {
+                    open(currentUrl + '&pageNo=1&pageSize=10000');
+                },
+            });
+            clearInterval(stop);
+        }, 1e3);
     });
 
     //查找课程
@@ -62,12 +69,15 @@
                     placeholder: e,
                 }
             }), {
+                id: 'filter',
                 tag: 'input',
                 type: 'button',
                 value: '脚本筛选',
                 onclick() {
                     const has_find_string = query_info_elms.concat(query_data_elms).some(e => !!e.value);
-                    if (has_find_string) filter();
+                    if (has_find_string) {
+                        filter();
+                    }
                 },
             }]
         });
@@ -79,39 +89,43 @@
         const query_info_elms = div.$('input[placeholder]', 1), //length:4
             query_data_elms = lesson_thead.children[0].$('input:not([id])', 1); //length:9
         // const data_key_elms = lesson_thead.children[1].$('th', 1).filter(e => !e.childElementCount); //length:10
-        window.Lessons = record();
+        const Lessons = record();
+        window.Lessons = Lessons;
+        window.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                $('#filter').onclick();
+            }
+        });
 
         function record() {
             //elm => Lesson
-            return lesson_tbody.$('tr[class]', 1).map(tr => {
-                const id = tr.$('.gridselect>input').value;
+            return lesson_tbody.$('tr[class]', 1).map(elm => {
+                const id = elm.$('.gridselect>input').value;
                 const infos = contents[id].split('<br>').map(e => e.trim().replace(/ +/g, ' ').split(' '));
-                const data = tr.$('td:not([class])', 1).map(e => e.innerText); //length:10
-                return { id, elm: tr, infos, data };
+                const data = elm.$('td:not([class])', 1).map(e => e.innerText); //length:10
+                return { id, elm, infos, data };
             });
         }
         function filter() {
-            for (let lesson of Lessons) {
-                //data匹配
-                let isOK_data = true; //data是否匹配
-                query_data_elms.forEach((e, i) => {
+            function isOK_data(lesson) {
+                return query_data_elms.every((e, i) => {
                     const find_string = e.value;
-                    if (find_string) isOK_data &&= lesson.data[i].includes(find_string); //全部find_string匹配，才成功
+                    return find_string ? lesson.data[i].includes(find_string) : true;
                 });
-                //infos匹配
-                let isOK_info;
-                for (let info of lesson.infos) {
-                    isOK_info = true;
-                    //info为['教师',...]或['']
-                    query_info_elms.forEach((e, i) => {
-                        const find_string = e.value;
-                        if (find_string) isOK_info &&= info[i - 1]?.includes(find_string); //有find_string，且info为['']时。isOK_info为false
-                    });
-                    if (isOK_info) break; //只要有一个info匹配，则成功
-                }
-                //判断是否显示
-                lesson.elm.style.display = (isOK_data && isOK_info) ? '' : 'none';
             }
+            function isOK_info(lesson) {
+                return lesson.infos.some(info => {
+                    return query_info_elms.every((e, i) => {
+                        const find_string = e.value;
+                        return find_string ? info[i - 1]?.includes(find_string) : true;
+                    })
+                });
+            }
+            Lessons.forEach(lesson => {
+                lesson.elm.style.display = (isOK_data(lesson) && isOK_info(lesson)) ? '' : 'none';
+            });
             console.log('筛选成功');
         }
     });

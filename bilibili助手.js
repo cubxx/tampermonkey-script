@@ -47,7 +47,7 @@
                 '.vip-wrap', //顶部按钮-大会员
                 '.vip-entry-containter', //信息面板-大会员
             ].flatMap(e => $(e, 1)).filter(e => e);
-            if (ads.length == 2) {
+            if (ads.length) {
                 ads.forEach(e => e.style.display = 'none');
                 console.log('bili广告元素', ads);
             } else {
@@ -59,7 +59,7 @@
         // 首页
         $tm.invokeUntilNoError = function homeADs() {
             if (location.host == 'www.bilibili.com' && location.pathname == '/') {
-                const sectionIDs = ['推广', '赛事'];
+                const sectionIDs = ['推广', '赛事', '直播'];
                 const ads = $('section', 1).filter(e => sectionIDs.includes(e.$('a')?.id))
                 if (ads.length != 0) {
                     ads.forEach(e => e.style.display = 'none');
@@ -72,23 +72,37 @@
     deleteADs();
 
     // 视频功能
+    const nodeListenerManager = {
+        listeners: new Map(),
+        add(selector, fn) {
+            const fns = this.listeners.get(selector) ?? [];
+            fns.push(fn);
+            this.listeners.set(selector, fns);
+        },
+        run() {
+            this.listeners.forEach((fns, selector) => {
+                $(selector)?.nodeListener(function () {
+                    fns = fns.filter(fn => !fn());
+                    return fns.length === 0;
+                });
+            });
+        }
+    };
     function wideScreenFn(selector) {
-        $('.bpx-player-control-wrap').nodeListener(function () {
-            const btn = $(selector);
-            if (btn) {
-                const _onclick = btn.onclick;
-                btn.onclick = function (e) {
-                    _onclick?.call(this, e);
-                    const lightOff = !player.getLightOff();
-                    const videoQuality = [16, 64][+lightOff]; //720p/360p
-                    player.setLightOff(lightOff); //开关灯
-                    if (player.getQuality().nowQ != videoQuality) {
-                        player.requestQuality(videoQuality);
-                    }
-                };
-                return 1;
-            }
-        });
+        const btn = $(selector);
+        if (btn) {
+            const _onclick = btn.onclick;
+            btn.onclick = function (e) {
+                _onclick?.call(this, e);
+                const lightOff = !player.getLightOff();
+                const videoQuality = [16, 64][+lightOff]; //720p/360p
+                player.setLightOff(lightOff); //开关灯
+                if (player.getQuality().nowQ != videoQuality) {
+                    player.requestQuality(videoQuality);
+                }
+            };
+            return 1;
+        }
     }
     function tooltip(text) {
         const hasTooltip = player.tooltip.update('shortcut', { title: text });
@@ -352,17 +366,16 @@
         }];
     $tm.urlFunc(/www.bilibili.com\/video/, () => {
         function vd() {
-            const vd = __INITIAL_STATE__.videoData;
+            const vd = window.__INITIAL_STATE__.videoData;
             if (vd) {
                 return vd;
             } else {
                 throw 'vd 失效';
             }
         }
-        //再次除广告
+        // 再次除广告
         $('.left-container-under-player').nodeListener(function () {
             setTimeout(deleteADs, 1e3);
-            return 1;
         }, { childList: true });
         // 页面内跳转
         $('.bpx-player-video-wrap').nodeListener(function () {
@@ -376,18 +389,28 @@
             attributes: true
         });
         // sm号换为nico视频
-        $('#v_desc')?.nodeListener(function () {
-            this.$('a', 1).forEach(a => {
+        nodeListenerManager.add('#v_desc', () => {
+            $('#v_desc a', 1).forEach(a => {
                 if (/sm\d+/.test(a.innerText))
                     a.href = `https://www.nicovideo.jp/watch/${a.innerText}`;
             });
         });
         // 宽屏模式
-        wideScreenFn('.bpx-player-ctrl-btn[aria-label=宽屏]');
+        nodeListenerManager.add('.bpx-player-control-wrap', () =>
+            wideScreenFn('.bpx-player-ctrl-btn[aria-label=宽屏]')
+        );
         // 屏蔽
         $('.bpx-player-cmd-dm-wrap').style.display = 'none';
         // 开字幕
-        vd().subtitle.list.length && $('.bpx-player-ctrl-btn[aria-label=字幕]>div>span').click();
+        if (vd().subtitle.list.length)
+            nodeListenerManager.add('.bpx-player-control-wrap', () => {
+                const btn = $('.bpx-player-ctrl-btn[aria-label=字幕]>div>span');
+                if (btn) {
+                    btn.click();
+                    return 1;
+                }
+            });
+        nodeListenerManager.run();
         // 按钮组
         const btnGrp = buttonGroup([...publicBtnArr, {
             name: '封面',
@@ -528,7 +551,7 @@
                                 }
                                 downloadBytes += value.length;
                                 chunks.push(value);
-                                toast_throttle(`正在获取资源${sign} ${(1e2 * downloadBytes / totalBytes).toFixed(0)}%`, sign);
+                                toast_throttle(`正在获取资源${sign} ${(1e2 * downloadBytes / totalBytes).toFixed(2)}%`, sign);
                                 pump();
                             }).catch(reject);
                         }();
@@ -639,7 +662,8 @@
             // 屏蔽wrap
             $('.bpx-player-toast-wrap').style.display = 'none';
             // 宽屏模式
-            wideScreenFn('.squirtle-video-widescreen');
+            nodeListenerManager.add('.bpx-player-control-wrap', () => wideScreenFn('.squirtle-video-widescreen'));
+            nodeListenerManager.run();
             // 按钮组
             buttonGroup(publicBtnArr).update();
             return 1;

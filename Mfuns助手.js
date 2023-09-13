@@ -21,7 +21,7 @@
         await $tm.libs.axios.use();
         axios.get('https://api.mfuns.net/v1/sign/sign', {
             headers: {
-                'Authorization': document.cookie.match(/mfuns_token=([^;]+)/)[1]
+                'Authorization': decodeURIComponent(document.cookie.match(/(access|mfuns)_token=([^;]+)/)[2])
             }
         }).then(res => {
             localStorage.setItem(signKey, new Date().toDateString());

@@ -78,7 +78,7 @@
                     $tm.urlFunc(/bing.com\/search/, e => {
                         text ||= $('#sb_form_q')?.value
                     });
-                    open(`https://www.bing.com/search?showconv=1&q=${text}&cc=us`);
+                    open(`https://www.bing.com/search?showconv=0&q=${text}&cc=us`);
                 }
             }, {
                 name: 'AI',
@@ -300,13 +300,15 @@
                 const url = sp.get('url') || sp.get('pfurl');
                 return url.includes('://') ? url : 'https://' + url;
             }, //QQ
-            'gitee.com/link': sp => sp.get('target'), // gitee
+            'gitee.com/link': null, // gitee
             'www.jianshu.com/go-wild': sp => sp.get('url'), //简书
+            'docs.qq.com/scenario/link.html': sp => sp.get('url'), //腾讯文档
+            'afdian.net/link': null, //爱发电
         };
-        for (let host in arr) {
-            if (document.URL.includes(host)) {
+        for (let path in arr) {
+            if (location.href.includes(path)) {
                 const sp = new URL(document.URL).searchParams;
-                location.href = arr[host]?.(sp) || sp.get('target');
+                location.href = arr[path]?.(sp) || sp.get('target');
             }
         }
     }();

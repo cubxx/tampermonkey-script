@@ -1,10 +1,10 @@
 const $tm = (function () {
     'use strict';
     function $(Selectors, all) {
-		if (typeof Selectors != 'string') {
-			// throw '选择器不是string';
-			return;
-		}
+        if (typeof Selectors != 'string') {
+            // throw '选择器不是string';
+            return;
+        }
         return all ? [...this.querySelectorAll(Selectors)] : this.querySelector(Selectors);
     };
     function addProperties(locked, p, o) {
@@ -101,10 +101,10 @@ const $tm = (function () {
         set invokeUntilNoError(fn) {
             const fnName = fn.name || 'anonymous';
             this.timer({
-                fn() {
+                async fn() {
                     try {
                         console.log(fnName + '函数开始调用');
-                        fn();
+                        await fn();
                         this.stop();
                         console.log(fnName + '函数停止调用');
                     } catch (error) {
