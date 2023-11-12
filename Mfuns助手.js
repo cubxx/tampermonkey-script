@@ -5,6 +5,8 @@
 // @description  用于提升网站体验
 // @author       Cubxx
 // @include      /https\:\/\/(www|m)\.mfuns\.net\//
+// @updateURL    https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/Mfuns助手.js
+// @downloadURL  https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/Mfuns助手.js
 // @require      https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/%24tm.js
 // @icon         https://m.kms233.com/static/icon/icon.png
 // @grant        none
@@ -18,19 +20,15 @@
             // $tm.tip('今日已签到');
             return;
         }
-        await $tm.libs.axios.use();
-        axios.get('https://api.mfuns.net/v1/sign/sign', {
+        const res = await fetch('https://api.mfuns.net/v1/sign/sign', {
             headers: {
                 'Authorization': decodeURIComponent(document.cookie.match(/(access|mfuns)_token=([^;]+)/)[2])
             }
-        }).then(res => {
-            localStorage.setItem(signKey, new Date().toDateString());
-            console.log('签到 ', res);
-            $tm.tip('签到成功');
-        }, err => {
-            console.log('签到 ', err);
-            $tm.tip('签到失败');
         });
+		const json = await res.json();
+		localStorage.setItem(signKey, new Date().toDateString());
+		console.log('签到 ', json);
+		$tm.tip(json.msg);
     }();
     // 网页端播放视频
     $tm.urlFunc(/m.mfuns.net\/video/, () => {
