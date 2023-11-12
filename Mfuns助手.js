@@ -5,7 +5,7 @@
 // @description  用于提升网站体验
 // @author       Cubxx
 // @include      /https\:\/\/(www|m)\.mfuns\.net\//
-// @require      https://cubxx.github.io/My-Tampermonkey-Script/$tm.js
+// @require      https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/%24tm.js
 // @icon         https://m.kms233.com/static/icon/icon.png
 // @grant        none
 // ==/UserScript==

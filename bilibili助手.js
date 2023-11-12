@@ -7,7 +7,7 @@
 // @match        https://*.bilibili.com/*
 // @exclude     https://api.bilibili.com/*
 // @exclude     https://api.vc.bilibili.com/*
-// @require     https://cubxx.github.io/My-Tampermonkey-Script/$tm.js
+// @require     https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/%24tm.js
 // @icon         https://www.bilibili.com/favicon.ico
 // @grant        none
 // ==/UserScript==

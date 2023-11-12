@@ -6,7 +6,7 @@
 // @author       Cubxx
 // @include      /shnu\./
 // @icon         https://www.shnu.edu.cn/favicon.ico
-// @require      https://cubxx.github.io/My-Tampermonkey-Script/$tm.js
+// @require      https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/%24tm.js
 // @grant        none
 // ==/UserScript==
 

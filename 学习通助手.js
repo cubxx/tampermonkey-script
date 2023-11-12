@@ -6,7 +6,7 @@
 // @author       Cubxx
 // @match      https://*.chaoxing.com/*
 // @icon         https://mooc.chaoxing.com/favicon.ico
-// @require      https://cubxx.github.io/My-Tampermonkey-Script/$tm.js
+// @require      https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/%24tm.js
 // @grant        none
 // ==/UserScript==
 
@@ -55,8 +55,8 @@
                     }
                 }, 1e2);
             });
-			$('.ans-timelineobjects').style.display = 'none';
-			$('.ans-timelineobjects').nodeListener(() => player.play()); //回答问题时继续播放
+            $('.ans-timelineobjects').style.display = 'none';
+            $('.ans-timelineobjects').nodeListener(() => player.play()); //回答问题时继续播放
             parent.document.$('.ans-job-icon').nodeListener(() => top.nextVideo(), { attributes: true }); //完成任务点后下一节
             // player.options_.plugins.seekBarControl.sendLog(player, 'playing', videoElm.duration.toFixed(0) - 1, player.seekBarControl());
             top._p = player;
