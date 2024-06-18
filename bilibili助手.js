@@ -218,8 +218,7 @@
         {
             name: '截图',
             onclick() {
-                const _this = this;
-                !(function () {
+                !(() => {
                     const videoElm = player.mediaElement();
                     switch (videoElm.tagName) {
                         case 'VIDEO':
@@ -235,7 +234,7 @@
                             return videoElm.getRenderCanvas();
                     }
                 })().toBlob((blob) => {
-                    _this.panel.$('input[type=radio]', 1).find((e) => e.checked).value == '本地'
+                    this.panel.$('input[type=radio]', 1).find((e) => e.checked).value == '本地'
                         ? $tm.download(blob)
                         : navigator.clipboard
                               .write([
@@ -250,14 +249,7 @@
                 box: {
                     style: 'justify-content: space-evenly;',
                 },
-                arr: [
-                    {
-                        innerHTML: '剪切板',
-                    },
-                    {
-                        innerHTML: '本地',
-                    },
-                ],
+                arr: [{ innerHTML: '剪切板' }, { innerHTML: '本地' }],
                 defaults: {
                     tag: 'label',
                     style: 'padding: 5px;',
@@ -311,9 +303,7 @@
                     style: 'padding: 5px;flex-direction: column;',
                 },
                 arr: [
-                    {
-                        tag: 'cite',
-                    },
+                    { tag: 'cite' },
                     {
                         box: {
                             tag: 'label',
@@ -331,7 +321,7 @@
                 ],
             },
             update() {
-                const videoElm = $('.bpx-player-video-wrap>*');
+                const videoElm = player.mediaElement();
                 this.panel.$('cite').innerHTML = videoElm.tagName;
                 if (videoElm.tagName == 'VIDEO') {
                     this.recorder = Object.assign(new MediaRecorder(videoElm.captureStream()), {
@@ -368,11 +358,7 @@
                                         return ffmpeg.FS('readFile', 'output').buffer;
                                     })
                                     .then((buffer) => {
-                                        $tm.download(
-                                            new Blob([buffer], {
-                                                type: 'video/mp4',
-                                            }),
-                                        );
+                                        $tm.download(new Blob([buffer], { type: 'video/mp4' }));
                                     })
                                     .catch(console.error);
                             } else $tm.download(blob);
@@ -412,7 +398,7 @@
             },
         },
     ];
-    $tm.urlFunc(/www.bilibili.com\/video/, () => {
+    $tm.urlFunc(/www.bilibili.com\/(video|list\/ml\d+)/, () => {
         function vd() {
             const vd = window.__INITIAL_STATE__.videoData;
             if (vd) {
@@ -422,25 +408,21 @@
             }
         }
         // 再次除广告
-        $('.left-container-under-player').nodeListener(
+        $('.left-container-under-player')?.nodeListener(
             function () {
                 setTimeout(deleteADs, 1e3);
             },
             { childList: true },
         );
         // 页面内跳转
-        $('.bpx-player-video-wrap').nodeListener(
+        $('h1').nodeListener(
             function () {
                 setTimeout(() => {
                     deleteADs();
                     btnGrp.update();
                 }, 1e3);
             },
-            {
-                childList: true,
-                subtree: true,
-                attributes: true,
-            },
+            { attributes: true },
         );
         // sm号换为nico视频
         nodeListenerManager.add('#v_desc', () => {
@@ -466,6 +448,70 @@
             });
         nodeListenerManager.run();
         // 按钮组
+        function getPageData() {
+            // 分p数据
+            const pageNum = +new URL(document.URL).searchParams.get('p');
+            if (pageNum) return vd().pages[pageNum - 1];
+            else return vd().pages[0];
+        }
+        async function getBlob(url, sign = 'data') {
+            // toast(`获取资源 ${sign}`);
+            if (!url) return errorFn('找不到资源\n' + sign);
+            const { headers, body, ok, status, statusText } = await fetch(url);
+            if (!ok) return errorFn(`获取失败 ${status} ${statusText}`);
+            // return await res.blob();
+            return await new Promise((resolve, reject) => {
+                const totalBytes = +headers.get('content-length');
+                let downloadBytes = 0;
+                let chunks = [];
+                const reader = body.getReader();
+                !(function pump() {
+                    reader
+                        .read()
+                        .then(({ value, done }) => {
+                            if (done) {
+                                resolve(new Blob(chunks));
+                                return;
+                            }
+                            downloadBytes += value.length;
+                            chunks.push(value);
+                            toast(
+                                `正在获取资源${sign} ${((1e2 * downloadBytes) / totalBytes).toFixed(
+                                    2,
+                                )}%`,
+                                sign,
+                            );
+                            pump();
+                        })
+                        .catch(reject);
+                })();
+            });
+        }
+        function errorFn(e) {
+            toast(e + '');
+            console.error(e);
+            return Promise.reject(e);
+        }
+        async function getStreamUrl(params) {
+            const { cid, page } = getPageData();
+            const params_obj = Object.assign(
+                {
+                    cid,
+                    bvid: vd().bvid,
+                    fnval: 16,
+                    qn: 64,
+                },
+                params,
+            );
+            toast('请求流地址');
+            console.log('流地址请求参数', params_obj);
+            const response = await fetch(
+                'https://api.bilibili.com/x/player/playurl?' + new URLSearchParams(params_obj),
+                { credentials: 'include' },
+            );
+            const { data, message, code } = await response.json();
+            return data;
+        }
         const btnGrp = buttonGroup([
             ...publicBtnArr,
             {
@@ -475,11 +521,7 @@
                 },
                 panel: {
                     box: {},
-                    arr: [
-                        {
-                            tag: 'img',
-                        },
-                    ],
+                    arr: [{ tag: 'img' }],
                 },
                 update() {
                     this.panel.$('img').src = vd().pic + '@150w_150h.jpg';
@@ -489,37 +531,26 @@
                 name: '下载',
                 onclick() {
                     // https://socialsisteryi.github.io/bilibili-API-collect/docs/video/videostream_url.html
-                    !async function () {
+                    (async () => {
                         // 请求流地址
-                        const { cid, page } = getPageData();
-                        const default_params_obj = { cid, bvid: vd().bvid },
-                            panel_params_obj = this.panel.$('select', 1).reduce((acc, e) => {
-                                acc[e.name] = +e.value;
-                                return acc;
-                            }, {});
-                        const params_obj = Object.assign(default_params_obj, panel_params_obj);
-                        toast('请求流地址');
-                        console.log('流地址请求参数', params_obj);
-                        const { data, message } = await fetch(
-                            'https://api.bilibili.com/x/player/playurl?' +
-                                new URLSearchParams(params_obj).toString(),
-                            {
-                                credentials: 'include',
-                            },
-                        ).then((res) => res.json());
-                        const { durl, dash } = data;
+                        const { durl, dash } = await getStreamUrl(
+                            this.panel
+                                .$('select', 1)
+                                .reduce((acc, { name, value }) => ({ ...acc, [name]: +value }), {}),
+                        );
                         // 获取文件
+                        const { cid, page } = getPageData();
                         const fliename = [vd().title, vd().owner.name, 'p' + page, null].join('-');
                         if (durl) {
                             if (data.quality == params_obj.qn) {
-                                getBlob(durl[0].url).then((blob) =>
-                                    $tm.download(blob, 'mp4', fliename),
-                                );
-                            } else
+                                const blob = await getBlob(durl[0].url);
+                                $tm.download(blob, 'mp4', fliename);
+                            } else {
                                 alert(
                                     'mp4格式仅支持以下清晰度:\n' +
                                         data.accept_description.join('\n'),
                                 );
+                            }
                         } else {
                             const vUrl = dash.video.find(
                                     (e) => e.id == params_obj.qn && e.codecid == params_obj.codecid,
@@ -624,54 +655,7 @@
                                 }
                             }
                         }
-                    }
-                        .call(this)
-                        .catch(errorFn);
-                    function getPageData() {
-                        // 分p数据
-                        const pageNum = +new URL(document.URL).searchParams.get('p');
-                        if (pageNum) return vd().pages[pageNum - 1];
-                        else return vd().pages[0];
-                    }
-                    async function getBlob(url, sign = 'data') {
-                        // toast(`获取资源 ${sign}`);
-                        if (!url) return errorFn('找不到资源\n' + sign);
-                        const { headers, body, ok, status, statusText } = await fetch(url);
-                        if (!ok) return errorFn(`获取失败 ${status} ${statusText}`);
-                        // return await res.blob();
-                        return await new Promise((resolve, reject) => {
-                            const totalBytes = +headers.get('content-length');
-                            let downloadBytes = 0;
-                            let chunks = [];
-                            const reader = body.getReader();
-                            !(function pump() {
-                                reader
-                                    .read()
-                                    .then(({ value, done }) => {
-                                        if (done) {
-                                            resolve(new Blob(chunks));
-                                            return;
-                                        }
-                                        downloadBytes += value.length;
-                                        chunks.push(value);
-                                        toast(
-                                            `正在获取资源${sign} ${(
-                                                (1e2 * downloadBytes) /
-                                                totalBytes
-                                            ).toFixed(2)}%`,
-                                            sign,
-                                        );
-                                        pump();
-                                    })
-                                    .catch(reject);
-                            })();
-                        });
-                    }
-                    function errorFn(e) {
-                        toast(e + '');
-                        console.error(e);
-                        return Promise.reject(e);
-                    }
+                    })().catch(errorFn);
                 },
                 panel: {
                     box: {
@@ -803,6 +787,40 @@
                             tooltip(`发送${data.bvid}`);
                         },
                     }).then((e) => tooltip('停止发送'));
+                },
+            },
+            {
+                name: '听视频',
+                onclick() {
+                    const videoElm = player.mediaElement();
+                    const { get } = Object.getOwnPropertyDescriptor(
+                        SourceBuffer.prototype,
+                        'buffered',
+                    );
+                    if ((this.enable ^= 1)) {
+                        Object.defineProperty(SourceBuffer.prototype, 'buffered', {
+                            get() {
+                                try {
+                                    return get.call(this);
+                                } catch (err) {
+                                    return videoElm.buffered;
+                                }
+                            },
+                        });
+                        this.update();
+                    } else {
+                        Object.defineProperty(SourceBuffer.prototype, 'buffered', { get });
+                    }
+                    this.style.color = { 0: '', 1: 'blue' }[this.enable];
+                },
+                enable: 0,
+                async update() {
+                    if (!this.enable) return;
+                    const videoElm = player.mediaElement();
+                    const { dash } = await getStreamUrl({ content: 2 });
+                    const streamUrl = dash.audio[1].baseUrl;
+                    videoElm.src = streamUrl;
+                    toast('设置音频流');
                 },
             },
         ]);

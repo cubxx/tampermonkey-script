@@ -61,11 +61,17 @@ const $tm = (function () {
         },
         /**捕获运行错误 */
         catch() {
+            let count = 0;
             return (...args) => {
+                if (count > 1e2) {
+					debugger;
+					return;
+				}
                 try {
                     this(...args);
                 } catch (err) {
-                    this.tip(err.message, 3e3, 'red');
+                    count++;
+                    $tm.tip(err.message, 3e3, 'red');
                     console.error(err);
                 }
             };
@@ -305,3 +311,46 @@ const $tm = (function () {
 })();
 const $ = $tm.$.bind(document);
 window.$tm ??= $tm;
+
+function h(tag, props = {}, children = []) {
+    for (const key in props) {
+        if (Object.hasOwnProperty.call(props, key)) {
+            if (/^on/.test(key)) {
+            }
+        }
+    }
+    return { tag, props, children };
+}
+function render(vnode) {
+    if (typeof vnode === 'string') {
+        return document.createTextNode(vnode);
+    }
+    const { tag, props, children } = vnode;
+    const el = document.createElement(tag);
+    for (const key in props) {
+        if (Object.hasOwnProperty.call(props, key)) {
+            el[key] = props[key];
+        }
+    }
+    children.map(render).forEach(el.appendChild.bind(el));
+    return el;
+}
+function mount(vnode, container) {
+    if (typeof container === 'string') {
+        container = document.querySelector(container);
+    }
+    return container.appendChild(render(vnode));
+}
+
+// 防无限 debugger
+Function.prototype.constructor = function (...args) {
+    args[0] = args[0].replaceAll('debugger', '');
+    return new Function(...args);
+};
+
+// 防禁用 comsole
+if (console.log.toString() !== 'function log() { [native code] }') {
+    const iframe = mount(h('iframe'), document.body);
+    window.console = iframe.contentWindow.console;
+    iframe.remove();
+}

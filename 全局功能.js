@@ -275,6 +275,7 @@
                     'sufei-dialog', //高德地图
                     'app-download-panel', //高德地图
                     'pop-up-comp', //有道翻译
+                    'ai-guide', //有道翻译
                 ],
                 id: [
                     'player-ads', //ytb
@@ -325,6 +326,7 @@
             'www.jianshu.com/go-wild': (sp) => sp.get('url'), //简书
             'docs.qq.com/scenario/link.html': (sp) => sp.get('url'), //腾讯文档
             'afdian.net/link': null, //爱发电
+            'mail.qq.com/cgi-bin/readtemplate': (sp) => sp.get('gourl'),
         };
         for (let path in arr) {
             if (location.href.includes(path)) {
@@ -340,10 +342,15 @@
     });
 
     //bingAI
-    $tm.urlFunc(/cn.bing.com/, () => {
-        const search = new URLSearchParams(location.search);
-        search.set('cc', 'us');
-        location.href = `https://www.bing.com${location.pathname}?${search}`;
+    $tm.urlFunc(/bing.com/, () => {
+        const url = new URL(location.href);
+        if (url.pathname === '/ck/a') return;
+        const search = url.searchParams;
+        if (search.get('cc') !== 'us' || search.get('mkt') != null) {
+            search.set('cc', 'us');
+            search.delete('mkt');
+            location.search = search;
+        }
     });
     $tm.urlFunc(/www.bing.com\/(search|chat)\?/, () => {
         //取消 blur事件
@@ -357,7 +364,7 @@
                 $('#id_h').style = 'right:calc(40px - calc(100vw - 100%))';
                 //左布局
                 const conversation = main.$('#cib-conversation-main').shadowRoot.children[0];
-                conversation.insertBefore(
+                conversation.$('.scroller').insertBefore(
                     conversation.$('.side-panel'),
                     conversation.$('.scroller-positioner'),
                 );
@@ -447,6 +454,15 @@
                 },
             );
         });
+        // const { data } = await fetch('https://www.zhihu.com/api/v4/inbox').then((res) => res.json());
+        // const results = await Promise.allSettled(
+        // data.map(({ participant: { id } }) =>
+        // fetch(`https://www.zhihu.com/api/v4/chat?sender_id=${id}`, {
+        // method: 'delete',
+        // }).then((res) => res.json()),
+        // ),
+        // );
+        // console.log('删除所有私信', results);
     });
     $tm.urlFunc(/www.zhihu.com\/question/, () => {
         $('.App-main .QuestionHeader-title').title = `创建时间 ${
@@ -484,4 +500,7 @@
     $tm.urlFunc(/www.flash.cn\/download-wins$/, () => {
         $('body > ul > li:nth-child(2) > a').click();
     });
+	
+	//github
+	$tm.urlFunc(/[^]+?.github.io\//, ()=>{})
 })();

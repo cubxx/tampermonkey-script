@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     //学习通免登录
-    $tm.urlFunc(/shnu.fy.chaoxing.com\/portal$/, () => {
+    $tm.urlFunc(/shnu.fy.chaoxing.com\/portal/, () => {
         location.href = 'https://i.mooc.chaoxing.com/';
     });
 
