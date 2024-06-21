@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // type check
+    "strict": true,
+    "noImplicitAny": false,
+    "allowJs": true,
+    "checkJs": true,
+    // file
+    "outDir": "dist",
+  },
+  "exclude": [
+    "node_modules",
+    "lib"
+  ],
+  "include": [
+    "types",
+    "src"
+  ]
+}

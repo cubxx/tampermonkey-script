@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "esbenp.prettier-vscode",
+        "andywang.vscode-scriptmonkey",
+        "runem.lit-plugin"
+    ]
+}

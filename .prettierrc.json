@@ -1,0 +1,15 @@
+{
+  "plugins": ["prettier-plugin-jsdoc"],
+  "singleQuote": true,
+  "tabWidth": 4,
+  "trailingComma": "all",
+  "overrides": [
+    {
+      "files": "*.json",
+      "options": {
+        "tabWidth": 2
+      }
+    }
+  ],
+  "jsdocTagsOrder": "{\"template\": 24.5}"
+}
