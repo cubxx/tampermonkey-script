@@ -3,9 +3,9 @@
 // @version      0.1
 // @author       Cubxx
 // @match        https://*.chaoxing.com/*
-// @icon         https://mooc.chaoxing.com/favicon.ico
-// @updateURL    https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/chaoxing-helper.user.js
-// @downloadURL  https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/chaoxing-helper.user.js
+// @icon         https://www.chaoxing.com/images/favicon.ico
+// @updateURL    https://github.com/Cubxx/tampermonkey-script/raw/main/src/chaoxing-helper.user.js
+// @downloadURL  https://github.com/Cubxx/tampermonkey-script/raw/main/src/chaoxing-helper.user.js
 // @grant        none
 // ==/UserScript==
 

@@ -3,9 +3,9 @@
 // @version      0.1
 // @author       Cubxx
 // @include      /https\:\/\/(www|m)\.mfuns\.net\//
-// @updateURL    https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/mfuns-helper.user.js
-// @downloadURL  https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/mfuns-helper.user.js
-// @icon         https://m.kms233.com/static/icon/icon.png
+// @updateURL    https://github.com/Cubxx/tampermonkey-script/raw/main/src/mfuns-helper.user.js
+// @downloadURL  https://github.com/Cubxx/tampermonkey-script/raw/main/src/mfuns-helper.user.js
+// @icon         https://www.mfuns.net/favicon.ico
 // @grant        none
 // ==/UserScript==
 

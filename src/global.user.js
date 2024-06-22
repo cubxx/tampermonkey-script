@@ -2,12 +2,9 @@
 // @name         全局功能
 // @version      0.2
 // @author       Cubxx
-// @include      *
-// @exclude      file:///*
-// @exclude      https://cubxx.github.io/*
-// @exclude      http://127.0.0.1:*/*
-// @updateURL    https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/global.user.js
-// @downloadURL  https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/global.user.js
+// @match        *://*/*
+// @updateURL    https://github.com/Cubxx/tampermonkey-script/raw/main/src/global.user.js
+// @downloadURL  https://github.com/Cubxx/tampermonkey-script/raw/main/src/global.user.js
 // @icon         https://i1.hdslb.com/bfs/face/a4883ecafbde7d55bb3f3356ce91d14452fcfef9.jpg@120w_120h_1c.avif
 // @grant        none
 // ==/UserScript==

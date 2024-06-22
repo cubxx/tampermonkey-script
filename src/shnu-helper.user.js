@@ -4,8 +4,8 @@
 // @author       Cubxx
 // @match        *://*.shnu.edu.cn/*
 // @match        *://shnu.fy.chaoxing.com/portal
-// @updateURL    https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/shnu-helper.user.js
-// @downloadURL  https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/shnu-helper.user.js
+// @updateURL    https://github.com/Cubxx/tampermonkey-script/raw/main/src/shnu-helper.user.js
+// @downloadURL  https://github.com/Cubxx/tampermonkey-script/raw/main/src/shnu-helper.user.js
 // @icon         https://cas.shnu.edu.cn/cas/comm/image/shnuicon.ico
 // @grant        none
 // ==/UserScript==

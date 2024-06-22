@@ -3,10 +3,10 @@
 // @version      0.1
 // @author       Cubxx
 // @match        https://*.bilibili.com/*
-// @exclude     https://api.bilibili.com/*
-// @exclude     https://api.vc.bilibili.com/*
-// @updateURL    https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/bilibili-helper.user.js
-// @downloadURL  https://github.com/Cubxx/My-Tampermonkey-Script/raw/master/src/bilibili-helper.user.js
+// @exclude      https://api.bilibili.com/*
+// @exclude      https://api.vc.bilibili.com/*
+// @updateURL    https://github.com/Cubxx/tampermonkey-script/raw/main/src/bilibili-helper.user.js
+// @downloadURL  https://github.com/Cubxx/tampermonkey-script/raw/main/src/bilibili-helper.user.js
 // @icon         https://www.bilibili.com/favicon.ico
 // @grant        none
 // ==/UserScript==

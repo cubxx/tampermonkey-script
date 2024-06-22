@@ -1,15 +1,14 @@
+# tampermonkey-script
+
 本项目用于存储一些自制油猴脚本
 
-先点开脚本文件，再点raw按钮，油猴插件会自动识别脚本并安装
+## 安装
 
-需要先安装 [tm 环境](./src/tm.user.js)，才能使用其他脚本
+1. 安装油猴插件：https://www.tampermonkey.net/
+2. 进入 [src](src) 文件夹
+3. 进入脚本文件，点 raw 按钮，油猴插件会自动识别脚本并安装
 
--   https://soberjs.com/component
+    需要先安装 [tm 环境](src/tm.user.js)，才能使用其他脚本
 
-```js
-// ES Module to Object
-''
-    .split(',')
-    .map((e) => e.split(' as ').reverse().join(':'))
-    .join(',');
-```
+<!-- https://soberjs.com/component -->
+<!-- ''.split(',').map((e) => e.split(' as ').reverse().join(':')).join(','); -->
