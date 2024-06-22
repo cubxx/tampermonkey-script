@@ -13,19 +13,102 @@
 (function () {
     const { dom, ui, util } = tm;
 
+    function copyText() {
+        if (!navigator.clipboard) util.exit('不支持 navigator.clipboard');
+        const text = getSelection()?.toString();
+        if (!text) return;
+        navigator.clipboard.writeText(text).then(
+            () => ui.snackbar.show('复制成功', 'seagreen'),
+            (err) => ui.snackbar.show('复制失败', 'crimson'),
+        );
+    }
+    function advancedSearch() {
+        const cfg = {
+            g: 'https://www.google.com/search?q=',
+            'g-s': 'https://scholar.google.com/scholar?q=',
+            b: 'https://www.bing.com/search?cc=us&q=',
+            dk: 'https://duckduckgo.com/?q=',
+            ghb: 'https://github.com/search?q=',
+            'ghb-u': 'https://github.com/',
+            npm: 'https://www.npmjs.com/search?q=',
+            'npm-p': 'https://www.npmjs.com/package/',
+            bili: 'https://search.bilibili.com/all?keyword=',
+            'bili-v': 'https://www.bilibili.com/video/',
+            'bili-u': 'https://space.bilibili.com/',
+            mfuns: 'https://www.mfuns.net/search?q=',
+            ytb: 'https://www.youtube.com/results?search_query=',
+            x: 'https://x.com/search?q=',
+            stack: 'https://stackoverflow.com/search?q=',
+            zhihu: 'https://www.zhihu.com/search?q=',
+            zhipin: 'https://www.zhipin.com/web/geek/job?query=',
+        };
+        let text = '';
+        function setText(e) {
+            text = e.target.value;
+            run('update');
+        }
+        /** @param {'show' | 'update'} method */
+        function run(method) {
+            ui.confirm[method](
+                '增强搜索',
+                lit.html`
+<s-text-field label="别名:内容" style="margin:15px 20px 0;font:large Consolas;min-width:30vw">
+<textarea .value=${text} @blur=${setText}></textarea >
+<s-icon slot="end" type="more_vert" title="cfg to Console" @click=${(e) => console.log(cfg)}></s-icon>
+</s-text-field>`,
+                ['确定', search],
+                ['取消', () => {}],
+            );
+        }
+        function search() {
+            const [alias, content] = text.split(':');
+            location.href = cfg[alias] + content;
+        }
+        run('show');
+    }
+    function FnPanel() {
+        ui.dialog.show('', '', [
+            {
+                text: '设计模式',
+                style: {
+                    background: document['designMode'] === 'on' ? '#bbb' : '',
+                },
+                onclick() {
+                    util.toggle(document, 'designMode', ['on', 'off']);
+                },
+            },
+            {
+                text: '邮箱发送',
+                onclick() {
+                    const email =
+                        getSelection()?.toString() || prompt('请输入邮箱');
+                    email && open('mailto:' + email);
+                },
+            },
+            {
+                text: '地址查找',
+                onclick() {
+                    const address =
+                        getSelection()?.toString() || prompt('请输入地址');
+                    address &&
+                        open(`https://ditu.amap.com/search?query=${address}`);
+                },
+            },
+            {
+                text: 'SciHub',
+                onclick() {
+                    const doi =
+                        getSelection()?.toString() || prompt('请输入DOI');
+                    doi && open(`https://sci-hub.st/${doi}`);
+                },
+            },
+        ]);
+    }
     document.on(
         'keydown',
         (e) => {
-            if (e.ctrlKey && e.code === 'KeyC') {
-                if (!navigator.clipboard)
-                    util.exit('不支持 navigator.clipboard');
-                const text = getSelection()?.toString();
-                if (!text) return;
-                navigator.clipboard.writeText(text).then(
-                    () => ui.snackbar.show('复制成功', 'seagreen'),
-                    (err) => ui.snackbar.show('复制失败', 'crimson'),
-                );
-            }
+            if (e.ctrlKey && e.code === 'KeyC') copyText();
+            if (e.shiftKey && e.code === 'KeyS') advancedSearch();
         },
         true,
     );
@@ -35,47 +118,9 @@
             // 右键左上角
             if (e.clientX > 10 || e.clientY > 10) return;
             e.preventDefault();
-            ui.dialog.show('', '', [
-                {
-                    text: '设计模式',
-                    style: {
-                        background:
-                            document['designMode'] === 'on' ? '#bbb' : '',
-                    },
-                    onclick() {
-                        util.toggle(document, 'designMode', ['on', 'off']);
-                    },
-                },
-                {
-                    text: '邮箱发送',
-                    onclick() {
-                        const email =
-                            getSelection()?.toString() || prompt('请输入邮箱');
-                        email && open('mailto:' + email);
-                    },
-                },
-                {
-                    text: '地址查找',
-                    onclick() {
-                        const address =
-                            getSelection()?.toString() || prompt('请输入地址');
-                        address &&
-                            open(
-                                `https://ditu.amap.com/search?query=${address}`,
-                            );
-                    },
-                },
-                {
-                    text: 'SciHub',
-                    onclick() {
-                        const doi =
-                            getSelection()?.toString() || prompt('请输入DOI');
-                        doi && open(`https://sci-hub.st/${doi}`);
-                    },
-                },
-            ]);
+            FnPanel();
         },
-        false,
+        true,
     );
 })();
 
