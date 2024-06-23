@@ -98,7 +98,7 @@ deleteADs();
 (function () {
     'use strict';
     if (self != top) return;
-    const { dom, ui, util, reserve } = tm;
+    const { dom, ui, util, hack } = tm;
 
     /** @readonly @type {any} */
     let player = window['player'];
@@ -193,6 +193,7 @@ deleteADs();
             /** 设置显示菜单 @param {MenuConfigs} items */
             return function (items) {
                 FnButton.onclick = () => ui.menu.show(items, FnButton);
+                // tmPlayer.onRouteChange(() => ui.menu.update(items, FnButton));
             };
         })(),
         onRouteChange: (function () {
@@ -201,7 +202,7 @@ deleteADs();
                 requestIdleCallback(() => cbs.forEach((cb) => cb()));
             };
             window.addEventListener('popstate', run);
-            reserve.override(History.prototype, 'pushState', ({ value }) => ({
+            hack.override(History.prototype, 'pushState', ({ value }) => ({
                 value(...e) {
                     value?.apply(this, e);
                     run();
@@ -348,8 +349,10 @@ deleteADs();
         {
             text: '倍速',
             onclick() {
-                let rate = prompt('设置倍速') || '3';
-                player.mediaElement().playbackRate = +rate;
+                const rate = prompt('设置倍速');
+                if (rate) {
+                    player.mediaElement().playbackRate = +rate;
+                }
             },
         },
     ];
@@ -378,11 +381,14 @@ deleteADs();
                 tmPlayer.wideScreen('.bpx-player-ctrl-btn[aria-label=宽屏]') &&
                 ob.disconnect(),
         );
-        observer.add('#v_desc', () => {
-            document.$$(/** @type {'a'} */ ('#v_desc a'))?.forEach((a) => {
-                if (/sm\d+/.test(a.innerText))
-                    a.href = `https://www.nicovideo.jp/watch/${a.innerText}`;
-            });
+        // 换sm链接
+        observer.add('.video-desc-container', () => {
+            document
+                .$$(/** @type {'a'} */ ('.video-desc-container a'))
+                ?.forEach((a) => {
+                    if (/sm\d+/.test(a.innerText))
+                        a.href = `https://www.nicovideo.jp/watch/${a.innerText}`;
+                });
         });
         // 屏蔽
         document.$('.bpx-player-cmd-dm-wrap')?.hide();
@@ -390,12 +396,13 @@ deleteADs();
         if (_.vd.subtitle.list.length) {
             observer.add('.bpx-player-control-wrap', (ob) => {
                 const btn = document.$(
-                    /** @type {'span'} */ (
-                        '.bpx-player-ctrl-btn[aria-label=字幕]>div>span'
-                    ),
+                    /** @type {'span'} */ ('.bpx-player-ctrl-subtitle span'),
                 );
                 if (btn) {
-                    btn.click();
+                    player
+                        .getElements()
+                        .subtitle.$('.bpx-player-subtitle-panel-text') ||
+                        btn.click();
                     ob.disconnect();
                 }
             });
@@ -478,18 +485,29 @@ deleteADs();
         }
         /** @type {MenuConfigs} */
         const btnItems = [
-            {
-                text: '封面',
-                items: [
-                    {
-                        text: lit.html`<img src="${_.vd.pic}@150w_150h.jpg" />`,
-                        style: { height: '100px' },
-                        onclick() {
-                            open(_.vd.pic);
+            (function () {
+                function update() {
+                    const el = ui.menu.el.$(
+                        /** @type {'img'} */ ('#tm-menu-cover'),
+                    );
+                    if (!el) return;
+                    el.src = _.vd.pic + '@150w_150h.jpg';
+                }
+                update();
+                tmPlayer.onRouteChange(update);
+                return {
+                    text: '封面',
+                    items: [
+                        {
+                            text: lit.html`<img id="tm-menu-cover" />`,
+                            style: { height: '100px' },
+                            onclick() {
+                                open(_.vd.pic);
+                            },
                         },
-                    },
-                ],
-            },
+                    ],
+                };
+            })(),
             (function () {
                 const config = (tmPlayer['params'] = {
                     /** 视频格式 */
@@ -758,7 +776,7 @@ Audio<s-checkbox checked="true" @change=${m(config.content, 1, 'checked')}></s-c
                     util.toggle(this.style, 'background', ['#bbb', '']);
                     if (!util.toggle(this, '_enabled', [true, false])) return;
                     const el = player.mediaElement();
-                    reserve.override(
+                    hack.override(
                         SourceBuffer.prototype,
                         'buffered',
                         ({ get }) => ({
@@ -770,11 +788,15 @@ Audio<s-checkbox checked="true" @change=${m(config.content, 1, 'checked')}></s-c
                                 ),
                         }),
                     );
+                    // 自动播放
+                    player.setAutoplay(true);
+                    player.setHandoff(0);
                     async function enable() {
                         const { dash } = await getStreamUrl();
                         const streamUrl = dash.audio[1].baseUrl;
                         el.src = streamUrl;
                         tmPlayer.toast('设置音频流');
+                        player.play();
                     }
                     enable();
                     tmPlayer.onRouteChange(enable);

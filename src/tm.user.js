@@ -149,7 +149,7 @@ const tm = (function () {
     };
 
     /** 逆向工具 */
-    const reserve = {
+    const hack = {
         /**
          * 覆盖原生属性
          *
@@ -177,7 +177,7 @@ const tm = (function () {
         },
         /** 禁止无限 debugger */
         disableInfDebugger() {
-            const _Function = reserve.override(
+            const _Function = hack.override(
                 window,
                 'Function',
                 ({ value }) => ({
@@ -193,12 +193,16 @@ const tm = (function () {
         },
         /** 还原 Console */
         restoreConsole() {
-            if (console.log.toString() !== 'function log() { [native code] }') {
-                const iframe = dom.h('iframe');
-                iframe.mount('body');
-                window['console'] = iframe.contentWindow?.['console'];
-                iframe.remove();
+            if (console.log.toString() === 'function log() { [native code] }') {
+                return;
             }
+            const iframe = dom.h('iframe').mount('body');
+            window['console'] = iframe.contentWindow?.['console'];
+            iframe.remove();
+        },
+        /** 监听 devtools 是否打开 @param {()=>void} opOpen */
+        detectDevtools(opOpen) {
+            console.log('%c', { toString: opOpen });
         },
     };
 
@@ -267,7 +271,8 @@ const tm = (function () {
              *       }
              *     : never}
              */ ({});
-            util.each(polyfill, (value, key) => {
+            //@ts-ignore
+            util.each(polyfill, (fn, key) => {
                 if (Object.prototype.hasOwnProperty.call(Node.prototype, key)) {
                     window['tm']?.__inject__ ||
                         console.warn(
@@ -275,13 +280,14 @@ const tm = (function () {
                         );
                 } else {
                     Object.defineProperty(Node.prototype, key, {
-                        value,
+                        value: fn,
+                        writable: true,
                         enumerable: false,
-                        writable: false,
+                        configurable: false,
                     });
                 }
                 //@ts-ignore
-                _polyfill[key] = (el, ...e) => value.apply(_$(el), e);
+                _polyfill[key] = (el, ...e) => fn.apply(_$(el), e);
             });
             return _polyfill;
         })(),
@@ -356,16 +362,36 @@ const tm = (function () {
 
     /** Ui 工具 */
     const ui = (function () {
-        function getShadow() {
-            const shadow = document.$('#tm-ui-container')?.shadowRoot;
-            if (shadow) return shadow;
-            const container = dom.h('section', {
-                id: 'tm-ui-container',
-                style: { position: 'absolute', zIndex: 1e5 },
-            });
-            container.mount('body');
-            return container.attachShadow({ mode: 'open' });
-        }
+        const id = 'tm-ui';
+        const shadow = {
+            createRoot() {
+                const container = dom
+                    .h('section', {
+                        id: id,
+                        style: { position: 'absolute', zIndex: 1e5 },
+                    })
+                    .mount('body');
+                const shadow = container.attachShadow({ mode: 'open' });
+                const sheet = new CSSStyleSheet();
+                sheet.replaceSync(`
+                    :host{}
+                    s-snackbar::part(container){background:var(--tm-snackbar-color)}
+                `);
+                shadow.adoptedStyleSheets = [sheet];
+                return shadow;
+            },
+            get root() {
+                return document.$('#' + id)?.shadowRoot ?? this.createRoot();
+            },
+            get sheet() {
+                return this.root.adoptedStyleSheets[0];
+            },
+            /** @returns {CSSStyleDeclaration} */
+            get hostStyle() {
+                //@ts-ignore
+                return this.sheet.cssRules[0].style;
+            },
+        };
         /**
          * @template {HTMLElement & { show(): void; dismiss(): void }} T 元素
          * @template {any[]} U 更新参数
@@ -389,7 +415,7 @@ const tm = (function () {
             /** @param {U} e */
             show(...e) {
                 if (!this.#hasMounted) {
-                    this.el.mount(getShadow());
+                    this.el.mount(shadow.root);
                     this.#hasMounted = true;
                 }
                 //@ts-ignore
@@ -409,6 +435,7 @@ const tm = (function () {
              */
             function (text, color = 'steelblue', duration = 2e3) {
                 Object.assign(this, { textContent: text, duration });
+                shadow.hostStyle.setProperty('--tm-snackbar-color', color);
             },
         );
         const dialog = new Popup(
@@ -449,27 +476,27 @@ const tm = (function () {
         /**
          * @typedef {Partial<ConvertProps> & {
          *     text: string | HTMLTemplateResult;
-         *     items: MenuConfig[];
+         *     items: MenuItemOrGroup[];
          * }} MenuGroup
          *
          *
          * @typedef {Partial<ConvertProps> & {
          *     text: string | HTMLTemplateResult;
-         *     onclick: HTMLElementTagNameMap['s-menu-item']['onclick'];
+         *     onclick?: HTMLElementTagNameMap['s-menu-item']['onclick'];
          * }} MenuItem
          *
          *
-         * @typedef {MenuGroup | MenuItem} MenuConfig
+         * @typedef {MenuGroup | MenuItem} MenuItemOrGroup
          */
         const menu = new Popup(
             dom.h('s-menu'),
             (function () {
                 /**
-                 * @param {MenuConfig} item
+                 * @param {MenuItemOrGroup} item
                  * @returns {item is MenuItem}
                  */
                 const isMenuItem = (item) => !util.hasOwnKey(item, 'items');
-                /** @param {MenuConfig[]} items */
+                /** @param {MenuItemOrGroup[]} items */
                 function tp(items) {
                     return items.map((item) => {
                         if (isMenuItem(item)) {
@@ -487,11 +514,11 @@ const tm = (function () {
                                 ${item.text}
                                 <s-icon slot="end" type="arrow_drop_right"></s-icon>
                             </s-menu-item>
-                            ${tp(item['items'])}
+                            ${tp(item.items)}
                         </s-menu>`;
                     });
                 }
-                /** @param {MenuConfig[]} items @param {HTMLElement} target */
+                /** @param {MenuItemOrGroup[]} items @param {HTMLElement} target */
                 return function (items, target) {
                     lit.render(tp(items), this);
                     return [target];
@@ -524,7 +551,7 @@ const tm = (function () {
         [Symbol.toStringTag]: 'tm',
         util,
         dom,
-        reserve,
+        hack,
         ui,
         /** 加载库 */
         load: (function () {

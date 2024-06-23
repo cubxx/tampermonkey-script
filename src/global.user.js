@@ -22,59 +22,97 @@
             (err) => ui.snackbar.show('复制失败', 'crimson'),
         );
     }
-    function advancedSearch() {
+    function advancedNav() {
         const cfg = {
-            g: 'https://www.google.com/search?q=',
-            'g-s': 'https://scholar.google.com/scholar?q=',
-            b: 'https://www.bing.com/search?cc=us&q=',
+            google: 'https://www.google.com/search?q=',
+            'google-scholar': 'https://scholar.google.com/scholar?q=',
+            bing: 'https://www.bing.com/search?cc=us&q=',
             duck: 'https://duckduckgo.com/?q=',
             mdn: 'https://developer.mozilla.org/zh-CN/search?q=',
-            ghb: 'https://github.com/search?q=',
-            'ghb-u': 'https://github.com/',
+            github: 'https://github.com/search?q=',
+            'github-user': 'https://github.com/',
             npm: 'https://www.npmjs.com/search?q=',
-            'npm-p': 'https://www.npmjs.com/package/',
+            'npm-pkg': 'https://www.npmjs.com/package/',
             bili: 'https://search.bilibili.com/all?keyword=',
-            'bili-v': 'https://www.bilibili.com/video/',
-            'bili-u': 'https://space.bilibili.com/',
+            'bili-video': 'https://www.bilibili.com/video/',
+            'bili-user': 'https://space.bilibili.com/',
             mfuns: 'https://www.mfuns.net/search?q=',
-            ytb: 'https://www.youtube.com/results?search_query=',
+            youtube: 'https://www.youtube.com/results?search_query=',
             x: 'https://x.com/search?q=',
-            stack: 'https://stackoverflow.com/search?q=',
+            stackoverflow: 'https://stackoverflow.com/search?q=',
             zhihu: 'https://www.zhihu.com/search?q=',
             zhipin: 'https://www.zhipin.com/web/geek/job?query=',
+            steamdb: 'https://steamdb.info/search/?q=',
+            greasyfork: 'https://greasyfork.org/zh-CN/scripts?q=',
+            amap: 'https://ditu.amap.com/search?query=',
+            scihub: 'https://sci-hub.st/',
+            email: 'mailto:',
         };
-        let text = '';
-        function setText(e) {
-            text = e.target.value;
-            run('update');
+        let alias = '',
+            content = '';
+        function setContent(e) {
+            content = e.target.value;
+            ui.confirm.update(...updateArgs());
         }
-        function showCfg() {
-            console.log(cfg);
-            ui.snackbar.show('别名列表已输出至控制台');
+        function setAlias(e) {
+            alias = typeof e === 'string' ? e : e.target.value;
+            ui.confirm.update(...updateArgs());
         }
-        /** @param {'show' | 'update'} method */
-        function run(method) {
-            ui.confirm[method](
-                '增强搜索',
-                lit.html`
-<s-text-field label="别名:内容" style="margin:15px 20px 0;font:large Consolas;min-width:30vw">
-<textarea .value=${text} @blur=${setText}></textarea >
-<s-icon slot="end" type="more_vert" title="cfg to Console" @click=${showCfg}></s-icon>
-</s-text-field>`,
-                ['新建', () => search('_blank')],
-                ['覆盖', () => search('_self')],
-            );
+        function showCfg(e) {
+            const text = e.target.value;
+            if (!text) return;
+            const aliases = Object.keys(cfg).filter((e) => e.startsWith(text));
+            const items = aliases.map((e) => ({
+                text: e,
+                onclick: () => setAlias(e),
+            }));
+            if (!items.length) return;
+            const el = ui.dialog.el.$('s-text-field');
+            el && ui.menu.show(items, el);
         }
+        const comp = () => lit.html`
+<div style="${dom.styleText({
+            margin: '15px 20px 0',
+            font: 'large Consolas',
+            display: 'grid',
+            gridTemplateColumns: '1fr 2fr',
+            gap: '10px',
+        })}">
+<s-text-field label="别名" style="min-width: auto;">
+    <textarea .value=${alias} @blur=${setAlias} @input=${showCfg}></textarea>
+</s-text-field>
+<s-text-field label="内容">
+    <textarea .value=${content} @blur=${setContent}></textarea>
+</s-text-field>
+<i style="${dom.styleText({
+            gridColumnStart: 1,
+            gridColumnEnd: 3,
+            fontSize: 'small',
+        })}">${cfg[alias] ?? 'https://...'}</i>
+</div>`;
         function search(target) {
-            const [alias, content] = text.split(':');
             if (!util.hasOwnKey(cfg, alias)) {
-                ui.snackbar.show(`${alias} 别名无效`);
-                setTimeout(showCfg, 2e3);
+                ui.snackbar.show(`${alias} 别名无效`, 'crimson');
                 return;
             }
-            window.open(cfg[alias] + content, target);
+            const url = cfg[alias] + content;
+            window.open(url, target);
         }
-        run('show');
+        const updateArgs = () =>
+            /** @type {Parameters<typeof ui.confirm.show>} */ ([
+                '快速导航',
+                comp(),
+                ['新建', () => search('_blank')],
+                ['覆盖', () => search('_self')],
+            ]);
+
+        ui.confirm.show(...updateArgs());
+        const el = ui.confirm.el.$(
+            /** @type {'textarea'} */ ('s-text-field textarea'),
+        );
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(-1, -1);
     }
     function FnPanel() {
         ui.dialog.show('', '', [
@@ -87,38 +125,13 @@
                     util.toggle(document, 'designMode', ['on', 'off']);
                 },
             },
-            {
-                text: '邮箱发送',
-                onclick() {
-                    const email =
-                        getSelection()?.toString() || prompt('请输入邮箱');
-                    email && open('mailto:' + email);
-                },
-            },
-            {
-                text: '地址查找',
-                onclick() {
-                    const address =
-                        getSelection()?.toString() || prompt('请输入地址');
-                    address &&
-                        open(`https://ditu.amap.com/search?query=${address}`);
-                },
-            },
-            {
-                text: 'SciHub',
-                onclick() {
-                    const doi =
-                        getSelection()?.toString() || prompt('请输入DOI');
-                    doi && open(`https://sci-hub.st/${doi}`);
-                },
-            },
         ]);
     }
     document.on(
         'keydown',
         (e) => {
             if (e.ctrlKey && e.code === 'KeyC') copyText();
-            if (e.shiftKey && e.code === 'KeyS') advancedSearch();
+            if (e.altKey && e.code === 'KeyQ') advancedNav();
         },
         true,
     );
