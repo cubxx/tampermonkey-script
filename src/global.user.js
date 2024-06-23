@@ -27,7 +27,8 @@
             g: 'https://www.google.com/search?q=',
             'g-s': 'https://scholar.google.com/scholar?q=',
             b: 'https://www.bing.com/search?cc=us&q=',
-            dk: 'https://duckduckgo.com/?q=',
+            duck: 'https://duckduckgo.com/?q=',
+            mdn: 'https://developer.mozilla.org/zh-CN/search?q=',
             ghb: 'https://github.com/search?q=',
             'ghb-u': 'https://github.com/',
             npm: 'https://www.npmjs.com/search?q=',
@@ -47,6 +48,10 @@
             text = e.target.value;
             run('update');
         }
+        function showCfg() {
+            console.log(cfg);
+            ui.snackbar.show('别名列表已输出至控制台');
+        }
         /** @param {'show' | 'update'} method */
         function run(method) {
             ui.confirm[method](
@@ -54,15 +59,20 @@
                 lit.html`
 <s-text-field label="别名:内容" style="margin:15px 20px 0;font:large Consolas;min-width:30vw">
 <textarea .value=${text} @blur=${setText}></textarea >
-<s-icon slot="end" type="more_vert" title="cfg to Console" @click=${(e) => console.log(cfg)}></s-icon>
+<s-icon slot="end" type="more_vert" title="cfg to Console" @click=${showCfg}></s-icon>
 </s-text-field>`,
-                ['确定', search],
-                ['取消', () => {}],
+                ['新建', () => search('_blank')],
+                ['覆盖', () => search('_self')],
             );
         }
-        function search() {
+        function search(target) {
             const [alias, content] = text.split(':');
-            location.href = cfg[alias] + content;
+            if (!util.hasOwnKey(cfg, alias)) {
+                ui.snackbar.show(`${alias} 别名无效`);
+                setTimeout(showCfg, 2e3);
+                return;
+            }
+            window.open(cfg[alias] + content, target);
         }
         run('show');
     }

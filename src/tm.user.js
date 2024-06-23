@@ -191,7 +191,7 @@ const tm = (function () {
             );
             Function.prototype.constructor = _Function;
         },
-        /** 还原 Comsole */
+        /** 还原 Console */
         restoreConsole() {
             if (console.log.toString() !== 'function log() { [native code] }') {
                 const iframe = dom.h('iframe');
