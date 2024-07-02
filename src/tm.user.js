@@ -386,7 +386,7 @@ const tm = (function () {
                       this.el,
                       typeof pos === 'number'
                           ? el.childNodes[pos]
-                          : Dom.el(pos).el,
+                          : Dom.el(pos),
                   );
             return this;
         }
@@ -467,7 +467,7 @@ const tm = (function () {
             createRoot() {
                 const container = Dom.h('section', {
                     id: id,
-                    style: { position: 'absolute', zIndex: 1e5 },
+                    style: { position: 'fixed', zIndex: 1e5 },
                 }).mount('body').el;
                 const shadow = container.attachShadow({ mode: 'open' });
                 const sheet = new CSSStyleSheet();
@@ -689,11 +689,13 @@ const tm = (function () {
          * 匹配网址
          *
          * @param {RegExp} reg
-         * @param {() => void} success
+         * @param {() => void} [success]
          * @param {() => void} [fail]
          */
         matchURL(reg, success, fail) {
-            reg.test(document.URL) ? success() : fail?.();
+            const result = reg.test(document.URL);
+            result ? success?.() : fail?.();
+            return result;
         },
         /**
          * 页面间通信

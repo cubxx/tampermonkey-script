@@ -48,8 +48,9 @@
             amap: 'https://ditu.amap.com/search?query=',
             scihub: 'https://sci-hub.st/',
             email: 'mailto:',
+            wiki: 'https://wikipedia.org/w/index.php?search=',
         };
-        let alias = '',
+        let alias = 'bing',
             content = '';
         function setContent(e) {
             content = e.target.value;
@@ -80,7 +81,7 @@
             gap: '10px',
         })}">
 <s-text-field label="别名" style="min-width: auto;">
-    <textarea .value=${alias} @blur=${setAlias} @input=${showCfg}></textarea>
+    <input .value=${alias} @blur=${setAlias} @input=${showCfg} type="text"/>
 </s-text-field>
 <s-text-field label="内容">
     <textarea .value=${content} @blur=${setContent}></textarea>
@@ -114,7 +115,8 @@
         el.setSelectionRange(-1, -1);
     }
     function FnPanel() {
-        ui.dialog.show('', '', [
+        /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>} */
+        const FnBtns = [
             {
                 text: '设计模式',
                 style: {
@@ -124,23 +126,32 @@
                     util.toggle(document, 'designMode', ['on', 'off']);
                 },
             },
-        ]);
+        ];
+        tm.matchURL(/github.(com|io)/) &&
+            FnBtns.push({
+                text: 'Github Page',
+                onclick() {
+                    const url = new URL(location.href);
+                    if (url.host === 'github.com') {
+                        const [_, author, rep] = url.pathname.split('/');
+                        window.open(`https://${author}.github.io/${rep}`);
+                    } else if (url.host.endsWith('.github.io')) {
+                        const author = url.host.replace('.github.io', '');
+                        const [_, rep] = url.pathname.split('/');
+                        window.open(`https://github.com/${author}/${rep}`);
+                    } else {
+                        ui.snackbar.show('当前路径不支持转换', 'crimson');
+                    }
+                },
+            });
+        ui.dialog.show('', '', FnBtns);
     }
     doc.on(
         'keydown',
         (e) => {
             if (e.ctrlKey && e.code === 'KeyC') copyText();
             if (e.altKey && e.code === 'KeyQ') advancedNav();
-        },
-        true,
-    );
-    doc.on(
-        'contextmenu',
-        (e) => {
-            // 右键左上角
-            if (e.clientX > 10 || e.clientY > 10) return;
-            e.preventDefault();
-            FnPanel();
+            if (e.altKey && e.code === 'KeyS') FnPanel();
         },
         true,
     );
@@ -152,69 +163,48 @@
     if (self != top) return;
     const { Dom } = tm;
     const doc = new Dom(document);
-
-    /**
-     * @param {{
-     *     className: string[];
-     *     id: string[];
-     *     tag: [string, string, RegExp][];
-     * }} cfg
-     */
-    function get({ className, id, tag }) {
-        return [
-            ...className.flatMap((e) => doc.$$(`.${e}`)),
-            ...id.map((e) => doc.$(`#${e}`)),
-            ...tag.flatMap((kvw) =>
-                doc.$$(kvw[0]).filter(({ el }) => kvw[2].test(el[kvw[1]])),
-            ),
-        ];
-    }
-    function del(e) {
-        if (!e) return;
-        e.hide();
-        // e.remove();
-    }
     function globalADs() {
-        const ads = get({
-            className: [
-                'adsbygoogle', //google
-                'pb-ad', //google
-                'google-auto-placed', //google
-                'ap_container', //google
-                'ad', //google
-                'b_ad', //bing-搜索
-                'Pc-card', //zhihu-首页
-                'Pc-word', //zhihu-问题
-                'unionAd', //baidu-百科
-                'jjjjasdasd', //halihali
+        const ads = [
+            [
+                '.adsbygoogle', //google
+                '.pb-ad', //google
+                '.google-auto-placed', //google
+                '.ap_container', //google
+                '.ad', //google
+                '.b_ad', //bing-搜索
+                '.Pc-card', //zhihu-首页
+                '.Pc-word', //zhihu-问题
+                '.unionAd', //baidu-百科
+                '.jjjjasdasd', //halihali
+                '.ytd-ad-slot-renderer', //ytb
+                '.Ads', //nico
+                '.ads', //nico
+                '.baxia-dialog', //高德地图
+                '.sufei-dialog', //高德地图
+                '.app-download-panel', //高德地图
+                '.pop-up-comp', //有道翻译
+                '.ai-guide', //有道翻译
+                '#player-ads', //ytb
+                '#masthead-ad', //ytb
                 'ytd-ad-slot-renderer', //ytb
-                'Ads', //nico
-                'ads', //nico
-                'baxia-dialog', //高德地图
-                'sufei-dialog', //高德地图
-                'app-download-panel', //高德地图
-                'pop-up-comp', //有道翻译
-                'ai-guide', //有道翻译
-            ],
-            id: [
-                'player-ads', //ytb
-                'masthead-ad', //ytb
-                'google_esf', //google
-            ],
-            tag: [
-                ['iframe', 'src', /googleads/], //删除 iframe.src 中匹配正则的元素
+                '#google_esf', //google
+                'li[data-layout=ad]', //duck
+            ].map((e) => doc.$$(e)),
+            /** @type {const} */ ([
+                ['iframe', 'src', /googleads/],
                 ['iframe', 'src', /app.moegirl/],
-                ['div', 'innerText', /^(oversea AD\n)?(加载中|广告)$/],
                 ['iframe', 'src', /ads.nicovideo.jp/],
-            ],
-        }).filter((e) => !!e);
-        ads.forEach(del);
-        console.log(
-            'globalAD',
-            ads.map((e) => e?.el),
-        );
+                // ['div', 'innerText', /^(oversea AD\n)?(加载中|广告)$/],
+            ]).map(([s, key, reg]) =>
+                doc.$$(s).filter(({ el }) => reg.test(el[key])),
+            ),
+        ]
+            .flat(2)
+            .map((e) => (e.hide(), e.el));
+        console.debug('globalAD', ads);
     }
     requestIdleCallback(globalADs);
+    window.addEventListener('load', globalADs);
 })();
 
 //直接跳转
@@ -248,7 +238,6 @@
     const { Dom, ui, util } = tm;
     const doc = new Dom(document);
 
-    //bingAI
     tm.matchURL(/bing.com/, () => {
         const url = new URL(location.href);
         if (url.pathname === '/ck/a') return;
@@ -326,7 +315,6 @@
         );
     });
 
-    //mdn换成中文
     tm.matchURL(/developer.mozilla.org\/[\w-]+\/docs/, () => {
         if (location.href.includes('zh-CN')) return;
         if (history.length > 2) return;
@@ -340,7 +328,6 @@
         );
     });
 
-    //知乎
     tm.matchURL(/www.zhihu.com\/(follow)?$/, () => {
         doc.$('#TopstoryContent')?.on('click', (e) => {
             //@ts-ignore
@@ -392,12 +379,10 @@
         doc.$('.ContentItem-time')?.mount('article', '.Post-RichTextContainer');
     });
 
-    //heroicons
     tm.matchURL(/heroicons.dev/, () => {
         doc.$('#root > aside.sidebar-2 > div')?.hide();
     });
 
-    //pixiv ADs
     tm.matchURL(/www.pixiv.net\/artworks/, () => {
         const list = [
             'aside > div',
@@ -411,6 +396,5 @@
         doc.$('body')?.observe(delADs, { childList: true });
     });
 
-    //github
     tm.matchURL(/[^]+?.github.io\//, () => {});
 })();
