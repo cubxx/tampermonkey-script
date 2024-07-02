@@ -207,9 +207,12 @@
                 ['div', 'innerText', /^(oversea AD\n)?(加载中|广告)$/],
                 ['iframe', 'src', /ads.nicovideo.jp/],
             ],
-        }).filter((e) => e);
+        }).filter((e) => !!e);
         ads.forEach(del);
-        console.log('globalAD', ads);
+        console.log(
+            'globalAD',
+            ads.map((e) => e?.el),
+        );
     }
     requestIdleCallback(globalADs);
 })();

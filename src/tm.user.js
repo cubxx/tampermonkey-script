@@ -204,6 +204,30 @@ const tm = (function () {
         detectDevtools(opOpen) {
             console.log('%c', { toString: opOpen });
         },
+        /** 取消 Trusted Types API 限制 */
+        cancelTrustedTypes() {
+            const { trustedTypes } = window;
+            if (!trustedTypes) return;
+            const policy = trustedTypes.createPolicy('tm-policy', {
+                createHTML: (e) => e,
+            });
+            hack.override(Element.prototype, 'innerHTML', ({ set }) => ({
+                set(v) {
+                    //@ts-ignore
+                    set?.call(this, policy.createHTML(v));
+                },
+            }));
+        },
+        /** 使 shadowRoot 可访问 */
+        openShadowRoot() {
+            hack.override(Element.prototype, 'attachShadow', ({ value }) => ({
+                value(e) {
+                    if (!value) return util.exit('找不到 Element.attachShadow');
+                    e.mode = 'open';
+                    return value.call(this, e);
+                },
+            }));
+        },
     };
 
     /** @typedef {Document | DocumentFragment | Element} El 可操作 Node */
@@ -515,7 +539,7 @@ const tm = (function () {
              * @param {number} duration
              */
             function (text, color = 'steelblue', duration = 2e3) {
-                Object.assign(this, { textContent: text, duration });
+                Object.assign(this.el, { textContent: text, duration });
                 shadow.hostStyle.setProperty('--tm-snackbar-color', color);
             },
         );
