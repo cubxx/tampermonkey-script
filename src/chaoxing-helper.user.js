@@ -10,24 +10,25 @@
 // ==/UserScript==
 
 (function () {
-    const { dom, ui, util } = tm;
+    const { Dom, ui, util } = tm;
+    const doc = new Dom(document);
 
     //选择未完成的小节
     tm.matchURL(/mycourse\/studentstudy/, () => {
         window.addEventListener('load', () => {
             /** 右侧菜单所有未完成小节 */
-            const list = document
+            const list = doc
                 .$$('.posCatalog_select')
                 .filter(
-                    (e) => e.id.startsWith('cur') && !e.$('.icon_Completed'),
+                    (e) => e.el.id.startsWith('cur') && !e.$('.icon_Completed'),
                 );
             for (var index = 0; index < list.length; index++) {
-                if (+(list[index].$('input')?.value ?? 0) === 2) break;
+                if (+(list[index].$('input')?.el.value ?? 0) === 2) break;
                 if (index === list.length - 1) index = 0;
             }
             (self['nextVideo'] = function (i = index) {
                 if (++i < list.length) {
-                    list[i].$('.posCatalog_name')?.['click']();
+                    list[i].$('.posCatalog_name')?.el.click();
                 }
             })(index - 1);
         });
@@ -37,10 +38,9 @@
     tm.matchURL(/ananas\/modules\/video\/index.html\?v=/, () => {
         function main() {
             if (!top) return;
-            /** @type {HTMLVideoElement | null} */
-            const videoElm = document.$('video#video_html5_api');
-            if (!videoElm) return;
-            top['v'] = Object.assign(videoElm, {
+            const videoDom = doc.$('video#video_html5_api');
+            if (!videoDom) return;
+            top['v'] = Object.assign(videoDom, {
                 autoplay: true,
                 muted: true,
                 playbackRate: 2, //倍速
@@ -48,38 +48,29 @@
                     console.log('阻止暂停执行');
                 },
             });
-            videoElm.addEventListener(
+            videoDom.on(
                 'pause',
                 (e) => {
-                    videoElm.paused && videoElm.play();
+                    videoDom.el.paused && videoDom.el.play();
                     e.stopImmediatePropagation();
                     console.log('阻止暂停回调');
                 },
                 true,
             );
-            setTimeout(() => videoElm.play());
+            setTimeout(() => videoDom.el.play());
             const player = (top['p'] = window['videojs'].getPlayer(
-                videoElm['playerId'],
+                videoDom.el['playerId'],
             ));
-            player.playbackRate = () => videoElm.playbackRate;
+            player.playbackRate = () => videoDom.el.playbackRate;
             player.finished = true; //进度条解锁
             window['Ext'].fly(top).un('mouseout'); //鼠标解锁
             player.off('pause'); //防暂停
-
-            const el = document.$(
-                /** @type {'div'} */ ('.ans-timelineobjects'),
-            );
-
-            el?.observe(
-                function () {
-                    el.hide(); //隐藏弹窗
-                },
-                { childList: true, subtree: true },
-            );
-
-            const btn = parent.document.querySelector('.ans-job-icon');
-
-            btn?.observe(() => top?.['nextVideo'](), { attributes: true }); //完成任务点后下一节
+            //隐藏弹窗
+            const el = doc.$('.ans-timelineobjects');
+            el?.observe(() => el.hide(), { childList: true, subtree: true });
+            //完成任务点后下一节
+            const btn = new Dom(parent.document).$('.ans-job-icon');
+            btn?.observe(() => top?.['nextVideo'](), { attributes: true });
         }
         main();
     });
@@ -143,14 +134,9 @@
                 }
             }
         }
-        document
-            .$$('form .singleQuesId')
-            .forEach((e) =>
-                answer(
-                    e.$('.fontLabel')?.['innerText'].split('\n')[1],
-                    e.$$('li'),
-                ),
-            );
+        doc.$$('form .singleQuesId').forEach((e) =>
+            answer(e.$('.fontLabel')?.el.innerText.split('\n')[1], e.$$('li')),
+        );
         requestIdleCallback(() => location.reload());
     });
 
@@ -158,9 +144,7 @@
     tm.matchURL(/ztnodedetailcontroller/, () => {
         window.onblur = null;
         Object.defineProperty(document, 'hidden', {
-            get() {
-                return false;
-            },
+            get: () => false,
         });
         const initTime = Date.now();
         let i = 0;
@@ -224,24 +208,24 @@
 
     //课程
     tm.matchURL(/mycourse\/stu/, () => {
-        document
-            .$(`#boxscrollleft .stuNavigationList ul li a[title=章节]`)
-            ?.['click']();
+        doc.$(`#boxscrollleft .stuNavigationList ul li`)
+            ?.$('a[title=章节]')
+            ?.el.click();
     });
 
     //作业
     tm.matchURL(/work\/dowork/, () => {
-        dom.h('input', {
+        Dom.h('input', {
             type: 'button',
             value: '复制',
             style: { position: 'absolute', top: 0 },
             onclick() {
                 let text = [
-                    ...document.$$(
+                    ...doc.$$(
                         `#submitForm>div h2,.questionLi>*:not(.stem_answer,:empty)`,
                     ),
                 ]
-                    .map((e) => e['innerText'].replace(/\n+/g, '\n'))
+                    .map((e) => e.el.innerText.replace(/\n+/g, '\n'))
                     .join('');
                 navigator.clipboard
                     .writeText(text)
@@ -252,27 +236,33 @@
 
     //资料
     tm.matchURL(/ueditorupload\/read/, () => {
-        document.$$('.mainCon,#reader,#reader>iframe').forEach((e) => {
-            e['style'].cssText = 'width:90%;text-align:center;';
-        });
-        const el = document.$(/** @type {'iframe'} */ ('#reader>iframe'));
-        if (!el) return;
-        el.height = 1e4 + 'px';
-        el.observe(
+        doc.$$(
+            /** @type {string} */ ('.mainCon,#reader,#reader>iframe'),
+        ).forEach((e) =>
+            e.set({
+                style: {
+                    width: '90%',
+                    textAlign: 'center',
+                },
+            }),
+        );
+        const dom = doc.$('#reader')?.$('iframe');
+        if (!dom) return;
+        dom.set({ style: { height: 1e4 + 'px' } });
+        dom.observe(
             () => {
-                el.style.height = '';
+                dom.set({ style: { height: '' } });
             },
             { attributes: true },
         );
     });
     tm.matchURL(/ananas\/modules\/pdf/, () => {
-        const el = document.$(/** @type {'iframe'} */ ('#docContainer'));
-        if (!el) return;
-        el.style.cssText = 'height:100%;';
-        el.observe(
+        const dom = doc.$('iframe#docContainer');
+        if (!dom) return;
+        dom.set({ style: { height: '100%' } });
+        dom.observe(
             () => {
-                const el = document.$('#img');
-                if (el) el['style'].cssText = 'height:100%;';
+                doc.$('#img')?.set({ style: { height: '100%' } });
             },
             { childList: true },
         );

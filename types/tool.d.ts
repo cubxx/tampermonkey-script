@@ -5,4 +5,20 @@ type Merge<T, U> = {
           ? T[K]
           : never;
 };
-type RequiredKeys<T, K extends keyof T> = Merge<T, { [P in K]: T[P] }>;
+/** 判断相等 */
+type isEqual<X, Y> =
+    (<T>() => T extends X ? 1 : 2) extends <T>() => T extends Y ? 1 : 2
+        ? true
+        : false;
+/**
+ * 提取具有相应值类型的键名
+ *
+ * @template T 对象
+ * @template U 值类型
+ */
+type ExtractKey<T extends {}, V, K = keyof T> = K extends keyof T
+    ? isEqual<T[K], V> extends true
+        ? K
+        : never
+    : never;
+type d = isEqual<'fa', ''>;

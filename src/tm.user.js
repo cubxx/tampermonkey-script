@@ -196,7 +196,7 @@ const tm = (function () {
             if (console.log.toString() === 'function log() { [native code] }') {
                 return;
             }
-            const iframe = dom.h('iframe').mount('body');
+            const iframe = Dom.h('iframe').mount('body').el;
             window['console'] = iframe.contentWindow?.['console'];
             iframe.remove();
         },
@@ -206,146 +206,52 @@ const tm = (function () {
         },
     };
 
-    /** Dom 操作工具 */
-    const dom = {
-        ...(function () {
-            /** 获取元素 @param {string|Node} el */
-            function _$(el) {
-                const _el = typeof el === 'string' ? document.$(el) : el;
-                if (_el) return _el;
-                else return util.exit(`找不到 ${el}`);
-            }
-            /**
-             * 注入原型
-             *
-             * @type {Polyfill.Node}
-             */
-            const polyfill = {
-                $(...e) {
-                    if (typeof this['querySelector'] === 'function') {
-                        return this['querySelector'](...e);
-                    } else {
-                        util.exit('仅支持 Document DocumentFragment Element');
-                    }
-                },
-                $$(...e) {
-                    if (typeof this['querySelectorAll'] === 'function') {
-                        return [...this['querySelectorAll'](...e)];
-                    } else {
-                        return util.exit(
-                            '仅支持 Document DocumentFragment Element',
-                        );
-                    }
-                },
-                on(...e) {
-                    this['addEventListener'](...e);
-                },
-                off(...e) {
-                    this['removeEventListener'](...e);
-                },
-                mount(container) {
-                    return _$(container).appendChild(this);
-                },
-                observe(callback, config) {
-                    const observer = new MutationObserver((records) => {
-                        callback(observer, records);
-                    });
-                    observer.observe(this, config);
-                    return observer;
-                },
-                hide() {
-                    if (!(this instanceof HTMLElement)) {
-                        return util.exit('仅支持 HTMLElement');
-                    }
-                    requestAnimationFrame(() =>
-                        this.style.setProperty('display', 'none', 'important'),
-                    );
-                },
-            };
-            const _polyfill = /**
-             * @type {typeof polyfill extends infer T
-             *     ? {
-             *           [K in keyof T]: T[K] extends (...e: infer P) => infer R
-             *               ? (el: Node | string, ...e: P) => R
-             *               : never;
-             *       }
-             *     : never}
-             */ ({});
-            //@ts-ignore
-            util.each(polyfill, (fn, key) => {
-                if (Object.prototype.hasOwnProperty.call(Node.prototype, key)) {
-                    window['tm']?.__inject__ ||
-                        console.warn(
-                            `Node.prototype.${key} is already defined`,
-                        );
-                } else {
-                    Object.defineProperty(Node.prototype, key, {
-                        value: fn,
-                        writable: true,
-                        enumerable: false,
-                        configurable: false,
-                    });
-                }
-                //@ts-ignore
-                _polyfill[key] = (el, ...e) => fn.apply(_$(el), e);
-            });
-            return _polyfill;
-        })(),
+    /** @typedef {Document | DocumentFragment | Element} El 可操作 Node */
+    /** Dom 操作器 @template {El} T */
+    class Dom {
         /**
-         * 创建 dom 元素
+         * 获取元素
+         *
+         * @template {El} T
+         * @param {string | Dom<T>} dom
+         * @returns {T | Element}
+         */
+        static el(dom) {
+            const el =
+                typeof dom === 'string' ? document.querySelector(dom) : dom.el;
+            return el ?? util.exit(`找不到 ${dom}`);
+        }
+        /**
+         * 创建 Dom 对象
          *
          * @template {keyof HTMLElementTagNameMap} K
          * @param {K} tag
          * @param {Partial<Props<K>>} props
-         * @param {(Node | string)[] | HTMLTemplateResult[]} children
-         * @returns {HTMLElementTagNameMap[K]}
+         * @param {(Dom | string)[]} children
+         * @returns {Dom<HTMLElementTagNameMap[K]>}
          */
-        h(tag, props = {}, children = []) {
+        static h(tag, props = {}, children = []) {
             // tag
             const el = document.createElement(tag);
+            const dom = new Dom(el);
             // props
-            util.each(
-                /**
-                 * @type {{
-                 *     [P in keyof ConvertProps]: (
-                 *         value: ConvertProps[P],
-                 *     ) => void;
-                 * }}
-                 */
-                ({
-                    class: (value) => (el.className = dom.classText(value)),
-                    style: (value) => (el.style.cssText = dom.styleText(value)),
-                }),
-                (convert, key) => {
-                    if (util.hasOwnKey(props, key)) {
-                        //@ts-ignore
-                        convert(props[key]);
-                        delete props[key];
-                    }
-                },
-            );
-            Object.assign(el, props);
+            //@ts-ignore
+            dom.set(props);
             // children
             if (children.length) {
-                lit.render(lit.html`${children}`, el);
+                el.append(
+                    ...children.map((e) => (typeof e === 'string' ? e : e.el)),
+                );
             }
-            return el;
-        },
-        /**
-         * Class 对象转字符串
-         *
-         * @param {ConvertProps['class']} [value]
-         */
-        classText(value) {
+            return new Dom(el);
+        }
+        /** Class 对象转字符串 @param {ConvertProps['class']} [value] */
+        static class(value) {
             if (!value) return '';
             return typeof value === 'string' ? value : value.join(' ');
-        },
-        /**
-         * Style 对象转字符串
-         *
-         * @param {ConvertProps['style']} [value]
-         */
-        styleText(value) {
+        }
+        /** Style 对象转字符串 @param {ConvertProps['style']} [value] */
+        static style(value) {
             if (!value) return '';
             if (typeof value === 'string') return value;
             return util
@@ -357,20 +263,188 @@ const tm = (function () {
                     /** @type {string[]} */ ([]),
                 )
                 .join(';');
-        },
-    };
+        }
+        /** @param {T | string} el */
+        constructor(el) {
+            const _el =
+                typeof el === 'string' ? document.querySelector(el) : el;
+            /** @type {T} */
+            //@ts-ignore
+            this.el = _el ?? util.exit(`找不到 ${el}`);
+        }
+        /**
+         * @template {keyof HTMLElementTagNameMap} K
+         * @typedef {K
+         *     | `${'#' | '.' | ''}${string}${' ' | '>'}${K}`
+         *     | `${K}${`[${string}]` | `${':' | '#' | '.'}${string}`}`} Selector
+         */
+        /**
+         * @template {keyof HTMLElementTagNameMap} K
+         * @overload
+         * @param {Selector<K>} e
+         * @returns {Dom<HTMLElementTagNameMap[K]> | null}
+         */
+        /**
+         * @overload
+         * @param {string} e
+         * @returns {Dom<HTMLDivElement> | null}
+         */
+        $(e) {
+            const el = this.el.querySelector(e);
+            return el ? new Dom(el) : null;
+        }
+        /**
+         * @template {keyof HTMLElementTagNameMap} K
+         * @overload
+         * @param {Selector<K>} e
+         * @returns {Dom<HTMLElementTagNameMap[K]>[]}
+         */
+        /**
+         * @overload
+         * @param {string} e
+         * @returns {Dom<HTMLDivElement>[]}
+         */
+        $$(e) {
+            return [...this.el.querySelectorAll(e)].map((e) => new Dom(e));
+        }
+        /**
+         * @template {keyof HTMLElementEventMap} K
+         * @overload
+         * @param {...[
+         *     type: K,
+         *     cb: (e: HTMLElementEventMap[K]) => void,
+         *     options?: boolean | AddEventListenerOptions,
+         * ]} e
+         */
+        /**
+         * @overload
+         * @param {...[
+         *     type: string,
+         *     cb: (e: Event) => void,
+         *     options?: boolean | AddEventListenerOptions,
+         * ]} e
+         */
+        on(...e) {
+            //@ts-ignore
+            this.el.addEventListener(...e);
+        }
+        /**
+         * @template {keyof HTMLElementEventMap} K
+         * @overload
+         * @param {...[
+         *     type: K,
+         *     cb: (e: HTMLElementEventMap[K]) => void,
+         *     options?: boolean | EventListenerOptions,
+         * ]} e
+         */
+        /**
+         * @overload
+         * @param {...[
+         *     type: string,
+         *     cb: (e: Event) => void,
+         *     options?: boolean | AddEventListenerOptions,
+         * ]} e
+         */
+        off(...e) {
+            //@ts-ignore
+            this.el.removeEventListener(...e);
+        }
+        /**
+         * @template {El} T
+         * @param {string | Dom<T>} dom
+         * @param {number | string | Dom} [pos]
+         */
+        mount(dom, pos) {
+            const el = Dom.el(dom);
+            pos === void 0
+                ? el.appendChild(this.el)
+                : el.insertBefore(
+                      this.el,
+                      typeof pos === 'number'
+                          ? el.childNodes[pos]
+                          : Dom.el(pos).el,
+                  );
+            return this;
+        }
+        /**
+         * @param {(
+         *     observer: MutationObserver,
+         *     records: MutationRecord[],
+         * ) => void} callback
+         * @param {MutationObserverInit} config
+         */
+        observe(callback, config) {
+            const observer = new MutationObserver((records) =>
+                callback(observer, records),
+            );
+            observer.observe(this.el, config);
+            return observer;
+        }
+        hide() {
+            const { el } = this;
+            if (!(el instanceof HTMLElement)) {
+                return util.exit('仅支持 HTMLElement');
+            }
+            requestAnimationFrame(() =>
+                el.style.setProperty('display', 'none', 'important'),
+            );
+        }
+        /**
+         * 设置属性值
+         *
+         * @param {Partial<Props<ExtractKey<HTMLElementTagNameMap, T>>>} props
+         */
+        set(props) {
+            const { el } = this;
+            if (!(el instanceof HTMLElement)) {
+                return util.exit('仅支持 HTMLElement');
+            }
+            util.each(
+                /**
+                 * @type {{
+                 *     [P in keyof ConvertProps]: (
+                 *         value: ConvertProps[P],
+                 *     ) => void;
+                 * }}
+                 */
+                ({
+                    class: (value) => (el.className = Dom.class(value)),
+                    style: (value) => (el.style.cssText = Dom.style(value)),
+                }),
+                (convert, key) => {
+                    if (util.hasOwnKey(props, key)) {
+                        //@ts-ignore
+                        convert(props[key]);
+                        delete props[key];
+                    }
+                },
+            );
+            Object.assign(el, props);
+            return this;
+        }
+        /** @returns {Dom<ShadowRoot> | null} */
+        get shadowRoot() {
+            const { el } = this;
+            if (el instanceof Element) {
+                const { shadowRoot } = el;
+                return shadowRoot ? new Dom(shadowRoot) : null;
+            }
+            return util.exit('仅支持 Element');
+        }
+        get children() {
+            return [...this.el.children].map((e) => new Dom(e));
+        }
+    }
 
     /** Ui 工具 */
     const ui = (function () {
         const id = 'tm-ui';
         const shadow = {
             createRoot() {
-                const container = dom
-                    .h('section', {
-                        id: id,
-                        style: { position: 'absolute', zIndex: 1e5 },
-                    })
-                    .mount('body');
+                const container = Dom.h('section', {
+                    id: id,
+                    style: { position: 'absolute', zIndex: 1e5 },
+                }).mount('body').el;
                 const shadow = container.attachShadow({ mode: 'open' });
                 const sheet = new CSSStyleSheet();
                 sheet.replaceSync(`
@@ -381,10 +455,13 @@ const tm = (function () {
                 return shadow;
             },
             get root() {
-                return document.$('#' + id)?.shadowRoot ?? this.createRoot();
+                return new Dom(
+                    document.querySelector('#' + id)?.shadowRoot ??
+                        this.createRoot(),
+                );
             },
             get sheet() {
-                return this.root.adoptedStyleSheets[0];
+                return this.root.el.adoptedStyleSheets[0];
             },
             /** @returns {CSSStyleDeclaration} */
             get hostStyle() {
@@ -393,41 +470,45 @@ const tm = (function () {
             },
         };
         /**
-         * @template {HTMLElement & { show(): void; dismiss(): void }} T 元素
+         * @template {Dom<HTMLElement & { show(): void; dismiss(): void }>} T
          * @template {any[]} U 更新参数
          */
         class Popup {
-            el;
+            dom;
             update;
             #hasMounted = false;
             /**
-             * @param {T} el 元素
-             * @param {(this: T, ...e: U) => Parameters<T['show']> | void} update
+             * @param {T} dom Dom 对象
+             * @param {(
+             *     this: T,
+             *     ...e: U
+             * ) => Parameters<T['el']['show']> | void} update
              *   更新函数
              */
-            constructor(el, update) {
-                if (!window.customElements.get(el.tagName.toLowerCase())) {
-                    console.warn(`${el.tagName} 未定义, 请引入 sober 组件库`);
+            constructor(dom, update) {
+                const { tagName } = dom.el;
+                if (!window.customElements.get(tagName.toLowerCase())) {
+                    console.warn(`${tagName} 未定义, 请引入 sober 组件库`);
                 }
-                this.el = el;
-                this.update = update.bind(this.el);
+                this.dom = dom;
+                this.update = update.bind(this.dom);
             }
             /** @param {U} e */
             show(...e) {
                 if (!this.#hasMounted) {
-                    this.el.mount(shadow.root);
+                    this.dom.mount(shadow.root);
                     this.#hasMounted = true;
                 }
                 //@ts-ignore
-                this.el.show(...(this.update(...e) ?? []));
+                this.dom.el.show(...(this.update(...e) ?? []));
             }
             close() {
-                this.el.dismiss();
+                this.dom.el.dismiss();
             }
         }
 
         const snackbar = new Popup(
-            dom.h('s-snackbar'),
+            Dom.h('s-snackbar'),
             /**
              * @param {string} text
              * @param {'crimson' | 'seagreen' | 'steelblue'} color
@@ -439,7 +520,7 @@ const tm = (function () {
             },
         );
         const dialog = new Popup(
-            dom.h('s-dialog'),
+            Dom.h('s-dialog'),
             /**
              * @param {string} title
              * @param {string | HTMLTemplateResult} text
@@ -464,13 +545,13 @@ const tm = (function () {
                 const actionsTp = actions.map((action) => {
                     return lit.html`<s-button 
                         slot="action" 
-                        class=${dom.classText(action.class)}
-                        style=${dom.styleText(action.style)}
+                        class=${Dom.class(action.class)}
+                        style=${Dom.style(action.style)}
                         type=${action.type}
                         .onclick=${action.onclick}
                     >${action.text}</s-button>`;
                 });
-                lit.render([titleTp, conetntTp, actionsTp], this);
+                lit.render([titleTp, conetntTp, actionsTp], this.el);
             },
         );
         /**
@@ -489,7 +570,7 @@ const tm = (function () {
          * @typedef {MenuGroup | MenuItem} MenuItemOrGroup
          */
         const menu = new Popup(
-            dom.h('s-menu'),
+            Dom.h('s-menu'),
             (function () {
                 /**
                  * @param {MenuItemOrGroup} item
@@ -501,14 +582,14 @@ const tm = (function () {
                     return items.map((item) => {
                         if (isMenuItem(item)) {
                             return lit.html`<s-menu-item
-                                class=${dom.classText(item.class)}
-                                style=${dom.styleText(item.style)}
+                                class=${Dom.class(item.class)}
+                                style=${Dom.style(item.style)}
                                 .onclick=${item.onclick}
                             >${item.text}</s-menu-item>`;
                         }
                         return lit.html`<s-menu
-                            class=${dom.classText(item.class)}
-                            style=${dom.styleText(item.style)}
+                            class=${Dom.class(item.class)}
+                            style=${Dom.style(item.style)}
                         >
                             <s-menu-item slot="trigger">
                                 ${item.text}
@@ -518,15 +599,15 @@ const tm = (function () {
                         </s-menu>`;
                     });
                 }
-                /** @param {MenuItemOrGroup[]} items @param {HTMLElement} target */
+                /** @param {MenuItemOrGroup[]} items @param {string|Dom} target */
                 return function (items, target) {
-                    lit.render(tp(items), this);
-                    return [target];
+                    lit.render(tp(items), this.el);
+                    return [Dom.el(target)];
                 };
             })(),
         );
         const confirm = new Popup(
-            dialog.el,
+            dialog.dom,
             /**
              * @typedef {[text: string, onclick: () => void]} Action
              * @param {string} title
@@ -550,7 +631,7 @@ const tm = (function () {
     const tm = /** @type {const} */ ({
         [Symbol.toStringTag]: 'tm',
         util,
-        dom,
+        Dom,
         hack,
         ui,
         /** 加载库 */
@@ -572,7 +653,7 @@ const tm = (function () {
              */
             return (name, version) => {
                 const { promise, reject, resolve } = Promise.withResolvers();
-                dom.h('script', {
+                Dom.h('script', {
                     src: libLink[name](version),
                     onload: () => resolve(`${name} 加载成功`),
                     onerror: () => reject(`${name} 加载失败`),
@@ -641,25 +722,13 @@ const tm = (function () {
             data,
             filename = prompt('文件名') ?? `${Date.now()}.tm-download`,
         ) {
-            dom.h('a', {
+            Dom.h('a', {
                 href: data instanceof Blob ? URL.createObjectURL(data) : data,
                 download: filename,
-            }).click();
+            }).el.click();
         },
     });
 
-    (function deepFreeze(/** @type {object} */ obj) {
-        util.each(obj, (value) => {
-            if (
-                (value &&
-                    typeof value === 'object' &&
-                    !(value instanceof Node)) ||
-                typeof value === 'function'
-            ) {
-                deepFreeze(value);
-            }
-        });
-        return Object.freeze(obj);
-    })(tm);
+    util.each(Object.freeze(tm), Object.freeze);
     return /** @type {typeof tm} */ (window['tm'] = Object.create(tm));
 })();

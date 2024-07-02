@@ -13,8 +13,10 @@
 
 // 事件监听
 (function () {
+    const { Dom } = tm;
+    const doc = new Dom(document);
     // 选中富文本不跳转
-    document.on(
+    doc.on(
         'click',
         (e) => {
             const el = /** @type {HTMLSpanElement} */ (e.target);
@@ -36,6 +38,8 @@
 // 删除广告
 const deleteADs = function () {
     if (self != top) return; // 不在iframe内执行
+    const { Dom } = tm;
+    const doc = new Dom(document);
     // 页面元素
     (function bodyADs() {
         const ads = [
@@ -50,8 +54,8 @@ const deleteADs = function () {
             '.vipPaybar_container__GsBut', //番剧大会员
             '.bili-dyn-ads', //动态广告
             '.reply-notice', //通知
-        ].flatMap((e) => document.$$(e));
-        if (ads.some((ad) => ad?.['style'].display !== 'none')) {
+        ].flatMap((e) => doc.$$(e));
+        if (ads.some((ad) => ad?.el.style.display !== 'none')) {
             ads.forEach((ad) => ad?.hide());
             requestIdleCallback(bodyADs);
         } else {
@@ -60,12 +64,12 @@ const deleteADs = function () {
     })();
     // 顶部元素
     (function headerADs() {
-        const li = document.$('.right-entry > li');
+        const li = doc.$('.right-entry > li');
         const ads = [
             '.vip-wrap', //顶部按钮-大会员
             '.vip-entry-containter', //信息面板-大会员
         ]
-            .flatMap((e) => document.$$(e))
+            .flatMap((e) => doc.$$(e))
             .filter((e) => e);
         if (ads.length) {
             ads.forEach((e) => e.hide());
@@ -80,9 +84,9 @@ const deleteADs = function () {
     (function homeADs() {
         if (location.host == 'www.bilibili.com' && location.pathname == '/') {
             const sectionIDs = ['推广', '赛事', '直播'];
-            const ads = document
+            const ads = doc
                 .$$('section')
-                .filter((e) => sectionIDs.includes(e.$('a')?.id ?? ''));
+                .filter((e) => sectionIDs.includes(e.$('a')?.el.id ?? ''));
             if (ads.length != 0) {
                 ads.forEach((e) => e.hide());
                 console.log('biliAD home', ads);
@@ -98,7 +102,8 @@ deleteADs();
 (function () {
     'use strict';
     if (self != top) return;
-    const { dom, ui, util, hack } = tm;
+    const { Dom, ui, util, hack } = tm;
+    const doc = new Dom(document);
 
     /** @readonly @type {any} */
     let player = window['player'];
@@ -108,8 +113,8 @@ deleteADs();
             get: () => player,
         });
     }
-    const playerEl =
-        document.$('#bilibili-player') ??
+    const playerDom =
+        new Dom('#bilibili-player') ??
         util.exit('未启动视频功能: 找不到 #bilibili-player');
 
     /** @typedef {Parameters<typeof ui.menu.show>[0]} MenuConfigs 按钮配置 */
@@ -128,7 +133,7 @@ deleteADs();
         },
         run() {
             this.listeners.forEach((callbacks, selector) => {
-                document.$(selector)?.observe(
+                doc.$(selector)?.observe(
                     (ob) => {
                         callbacks.forEach((cb) => cb(ob));
                     },
@@ -141,7 +146,7 @@ deleteADs();
     const tmPlayer = (tm['player'] = {
         /** 更改宽屏回调 @param {string} selector */
         wideScreen(selector) {
-            const btn = document.$(/** @type {'button'} */ (selector));
+            const btn = doc.$(/** @type {'button'} */ (selector));
             btn?.on('click', () => {
                 const cfg = { lightOff: false, quality: 16 };
                 player.setLightOff(util.toggle(cfg, 'lightOff', [true, false]));
@@ -176,7 +181,7 @@ deleteADs();
         })(),
         setMenu: (function () {
             /** 功能按钮 */
-            const FnButton = dom.h(
+            const FnButton = Dom.h(
                 's-icon-button',
                 {
                     type: 'filled',
@@ -185,14 +190,12 @@ deleteADs();
                         transform: 'translateX(-130%)',
                     },
                 },
-                [dom.h('s-icon', { type: 'menu' })],
+                [Dom.h('s-icon', { type: 'menu' })],
             );
-            setTimeout(() =>
-                playerEl.insertBefore(FnButton, playerEl.firstElementChild),
-            );
+            setTimeout(() => FnButton.mount(playerDom, 0));
             /** 设置显示菜单 @param {MenuConfigs} items */
             return function (items) {
-                FnButton.onclick = () => ui.menu.show(items, FnButton);
+                FnButton.el.onclick = () => ui.menu.show(items, FnButton);
                 // tmPlayer.onRouteChange(() => ui.menu.update(items, FnButton));
             };
         })(),
@@ -225,10 +228,10 @@ deleteADs();
                     const el = player.mediaElement();
                     switch (el.tagName) {
                         case 'VIDEO': {
-                            const canvas = dom.h('canvas', {
+                            const canvas = Dom.h('canvas', {
                                 width: el.videoWidth,
                                 height: el.videoHeight,
-                            });
+                            }).el;
                             canvas?.getContext('2d')?.drawImage(el, 0, 0);
                             return canvas;
                         }
@@ -369,9 +372,10 @@ deleteADs();
         };
 
         // 再次除广告
-        document
-            .$('.left-container-under-player')
-            ?.observe(util.debounce(deleteADs, 10), { childList: true });
+        doc.$('.left-container-under-player')?.observe(
+            util.debounce(deleteADs, 10),
+            { childList: true },
+        );
         // 页面内跳转
         tmPlayer.onRouteChange(deleteADs);
         // 宽屏模式
@@ -383,26 +387,26 @@ deleteADs();
         );
         // 换sm链接
         observer.add('.video-desc-container', () => {
-            document
-                .$$(/** @type {'a'} */ ('.video-desc-container a'))
+            doc.$('.video-desc-container')
+                ?.$$('a')
                 ?.forEach((a) => {
-                    if (/sm\d+/.test(a.innerText))
-                        a.href = `https://www.nicovideo.jp/watch/${a.innerText}`;
+                    if (/sm\d+/.test(a.el.innerText))
+                        a.set({
+                            href: `https://www.nicovideo.jp/watch/${a.el.innerText}`,
+                        });
                 });
         });
         // 屏蔽
-        document.$('.bpx-player-cmd-dm-wrap')?.hide();
+        doc.$('.bpx-player-cmd-dm-wrap')?.hide();
         // 开字幕
         if (_.vd.subtitle.list.length) {
             observer.add('.bpx-player-control-wrap', (ob) => {
-                const btn = document.$(
-                    /** @type {'span'} */ ('.bpx-player-ctrl-subtitle span'),
-                );
+                const btn = doc.$('.bpx-player-ctrl-subtitle')?.$('span');
                 if (btn) {
                     player
                         .getElements()
                         .subtitle.$('.bpx-player-subtitle-panel-text') ||
-                        btn.click();
+                        btn.el.click();
                     ob.disconnect();
                 }
             });
@@ -487,11 +491,9 @@ deleteADs();
         const btnItems = [
             (function () {
                 function update() {
-                    const el = ui.menu.el.$(
-                        /** @type {'img'} */ ('#tm-menu-cover'),
-                    );
-                    if (!el) return;
-                    el.src = _.vd.pic + '@150w_150h.jpg';
+                    const dom = ui.menu.dom.$('img#tm-menu-cover');
+                    if (!dom) return;
+                    dom.set({ src: _.vd.pic + '@150w_150h.jpg' });
                 }
                 update();
                 tmPlayer.onRouteChange(update);
@@ -689,11 +691,9 @@ Audio<s-checkbox checked="true" @change=${m(config.content, 1, 'checked')}></s-c
                     text: '下载',
                     async onclick() {
                         const { promise, resolve } = Promise.withResolvers();
-                        ui.confirm.el.addEventListener(
-                            'dismiss',
-                            () => resolve(false),
-                            { once: true },
-                        );
+                        ui.confirm.dom.on('dismiss', () => resolve(false), {
+                            once: true,
+                        });
                         ui.confirm.show(
                             '下载设置',
                             toFormTp(),
@@ -808,10 +808,10 @@ Audio<s-checkbox checked="true" @change=${m(config.content, 1, 'checked')}></s-c
 
     tm.matchURL(/www.bilibili.com\/bangumi/, () => {
         tmPlayer.setMenu(sharedItems);
-        playerEl.observe(
+        playerDom.observe(
             (ob) => {
                 // 屏蔽wrap
-                document.$('.bpx-player-toast-wrap')?.hide();
+                doc.$('.bpx-player-toast-wrap')?.hide();
                 // 宽屏模式
                 observer.add('.bpx-player-control-wrap', (ob) => {
                     tmPlayer.wideScreen('.squirtle-video-widescreen') &&

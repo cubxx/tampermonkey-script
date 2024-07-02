@@ -11,7 +11,8 @@
 
 //事件监听
 (function () {
-    const { dom, ui, util } = tm;
+    const { Dom, ui, util } = tm;
+    const doc = new Dom(document);
 
     function copyText() {
         if (!navigator.clipboard) util.exit('不支持 navigator.clipboard');
@@ -67,11 +68,11 @@
                 onclick: () => setAlias(e),
             }));
             if (!items.length) return;
-            const el = ui.dialog.el.$('s-text-field');
+            const el = ui.dialog.dom.$('s-text-field');
             el && ui.menu.show(items, el);
         }
         const comp = () => lit.html`
-<div style="${dom.styleText({
+<div style="${Dom.style({
             margin: '15px 20px 0',
             font: 'large Consolas',
             display: 'grid',
@@ -84,7 +85,7 @@
 <s-text-field label="内容">
     <textarea .value=${content} @blur=${setContent}></textarea>
 </s-text-field>
-<i style="${dom.styleText({
+<i style="${Dom.style({
             gridColumnStart: 1,
             gridColumnEnd: 3,
             fontSize: 'small',
@@ -107,9 +108,7 @@
             ]);
 
         ui.confirm.show(...updateArgs());
-        const el = ui.confirm.el.$(
-            /** @type {'textarea'} */ ('s-text-field textarea'),
-        );
+        const el = ui.confirm.dom.$('s-text-field textarea')?.el;
         if (!el) return;
         el.focus();
         el.setSelectionRange(-1, -1);
@@ -119,7 +118,7 @@
             {
                 text: '设计模式',
                 style: {
-                    background: document['designMode'] === 'on' ? '#bbb' : '',
+                    background: document.designMode === 'on' ? '#bbb' : '',
                 },
                 onclick() {
                     util.toggle(document, 'designMode', ['on', 'off']);
@@ -127,7 +126,7 @@
             },
         ]);
     }
-    document.on(
+    doc.on(
         'keydown',
         (e) => {
             if (e.ctrlKey && e.code === 'KeyC') copyText();
@@ -135,7 +134,7 @@
         },
         true,
     );
-    document.on(
+    doc.on(
         'contextmenu',
         (e) => {
             // 右键左上角
@@ -151,13 +150,22 @@
 (function () {
     'use strict';
     if (self != top) return;
+    const { Dom } = tm;
+    const doc = new Dom(document);
 
+    /**
+     * @param {{
+     *     className: string[];
+     *     id: string[];
+     *     tag: [string, string, RegExp][];
+     * }} cfg
+     */
     function get({ className, id, tag }) {
         return [
-            ...className.flatMap((e) => document.$$(`.${e}`)),
-            ...id.map((e) => document.$(`#${e}`)),
+            ...className.flatMap((e) => doc.$$(`.${e}`)),
+            ...id.map((e) => doc.$(`#${e}`)),
             ...tag.flatMap((kvw) =>
-                document.$$(kvw[0]).filter((e) => kvw[2].test(e[kvw[1]])),
+                doc.$$(kvw[0]).filter(({ el }) => kvw[2].test(el[kvw[1]])),
             ),
         ];
     }
@@ -234,7 +242,8 @@
 (function () {
     'use strict';
     if (self != top) return;
-    const { dom, ui, util } = tm;
+    const { Dom, ui, util } = tm;
+    const doc = new Dom(document);
 
     //bingAI
     tm.matchURL(/bing.com/, () => {
@@ -249,30 +258,26 @@
     tm.matchURL(/www.bing.com\/(search|chat)\?/, () => {
         //界面优化
         let times = 0;
-        document.body.observe(
+        doc.$('body')?.observe(
             function (ob) {
-                const main = document.$('cib-serp')?.shadowRoot;
+                const main = doc.$('cib-serp')?.shadowRoot;
                 if (!main) return;
-                document
-                    .$('#id_h')
-                    ?.[
-                        'style'
-                    ].setProperty('right', 'calc(40px - calc(100vw - 100%))');
+                doc.$('#id_h')?.set({
+                    style: { right: 'calc(40px - calc(100vw - 100%))' },
+                });
                 //左布局
                 const conversation = main.$('#cib-conversation-main')
                     ?.shadowRoot?.children[0];
                 if (!conversation) return;
                 const sidePanel = conversation.$('.side-panel');
-                if (!sidePanel) return;
-                conversation
-                    .$('.scroller')
-                    ?.insertBefore(
-                        sidePanel,
-                        conversation.$('.scroller-positioner'),
-                    );
+                const scroller = conversation.$('.scroller');
+                if (!sidePanel || !scroller) return;
+                sidePanel.mount(
+                    scroller,
+                    conversation.$('.scroller-positioner') ?? 0,
+                );
                 const inputBox = main.$('#cib-action-bar-main');
-                if (!inputBox) return;
-                inputBox['style'].cssText = 'right: 0px;margin: 0;';
+                inputBox?.set({ style: 'right: 0px;margin: 0;' });
                 //清空会话
                 const surface = main
                     .$('#cib-conversation-main')
@@ -281,15 +286,15 @@
                 const threads = surface.$('.threads');
                 if (!threads) return;
                 if (times) return ob.disconnect();
-                const clearBtn = dom.h('input', {
+                const clearBtn = Dom.h('input', {
                     type: 'button',
                     value: '清空会话',
                     class: 'show-recent',
                     onclick() {
                         threads.$$('cib-thread').forEach((e) => {
-                            e.shadowRoot?.$('.delete')?.['click']();
+                            e.shadowRoot?.$('.delete')?.el['click']();
                             setTimeout(() => {
-                                e.shadowRoot?.$('.confirm')?.['click']();
+                                e.shadowRoot?.$('.confirm')?.el['click']();
                             }, 50);
                         });
                     },
@@ -298,7 +303,7 @@
                 //历史会话
                 surface.observe(
                     function (ob) {
-                        surface.$('button')?.remove();
+                        surface.$('button')?.hide();
                         ob.disconnect();
                     },
                     { childList: true },
@@ -307,7 +312,7 @@
                     function () {
                         threads
                             .$$('cib-thread')
-                            ?.forEach((e) => e.removeAttribute('hide'));
+                            ?.forEach((e) => e.el.removeAttribute('hide'));
                     },
                     { childList: true },
                 );
@@ -330,14 +335,11 @@
                 '/zh-CN/docs',
             )),
         );
-        // document
-        //     .$$(/** @type {'a'} */ ('.language-menu a'))
-        //     .forEach((e) => e.innerText.includes('简体') && e.click());
     });
 
     //知乎
     tm.matchURL(/www.zhihu.com\/(follow)?$/, () => {
-        document.$('#TopstoryContent')?.on('click', (e) => {
+        doc.$('#TopstoryContent')?.on('click', (e) => {
             //@ts-ignore
             if (e.target.classList[1] != 'ContentItem-more') return;
             //@ts-ignore
@@ -376,28 +378,20 @@
         }
     });
     tm.matchURL(/www.zhihu.com\/question/, () => {
-        const el = document.$(
-            /** @type {'div'} */ ('.App-main .QuestionHeader-title'),
-        );
-        if (!el) return;
-        el.title = `创建时间document.${
-            document.$('meta[itemprop=dateCreated]')?.['content']
-        }\n修改时间document.${
-            document.$('meta[itemprop=dateModified]')?.['content']
-        }`;
-        document.$('header')?.hide();
+        doc.$('.App-main .QuestionHeader-title')?.set({
+            title: `创建时间doc.${
+                doc.$('meta[itemprop=dateCreated]')?.el.content
+            }\n修改时间doc.${doc.$('meta[itemprop=dateModified]')?.el.content}`,
+        });
+        doc.$('header')?.hide();
     });
     tm.matchURL(/zhuanlan.zhihu.com\/p/, () => {
-        const el = document.$('.ContentItem-time');
-        if (!el) return;
-        document
-            .$('article')
-            ?.insertBefore(el, document.$('.Post-RichTextContainer'));
+        doc.$('.ContentItem-time')?.mount('article', '.Post-RichTextContainer');
     });
 
     //heroicons
     tm.matchURL(/heroicons.dev/, () => {
-        document.$('#root > aside.sidebar-2 > div')?.hide();
+        doc.$('#root > aside.sidebar-2 > div')?.hide();
     });
 
     //pixiv ADs
@@ -408,10 +402,10 @@
             '.charcoal-token > div > div:nth-child(3) > div > div > div:nth-child(2)',
         ];
         function delADs() {
-            list.forEach((e) => document.$(e)?.hide());
+            list.forEach((e) => doc.$(e)?.hide());
         }
         delADs();
-        document.body.observe(delADs, { childList: true });
+        doc.$('body')?.observe(delADs, { childList: true });
     });
 
     //github

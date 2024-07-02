@@ -10,7 +10,8 @@
 // ==/UserScript==
 
 (function () {
-    const { dom, ui, util } = tm;
+    const { Dom, ui, util } = tm;
+    const doc = new Dom(document);
 
     // 签到
     !(async function () {
@@ -35,13 +36,11 @@
     })();
     // 网页端播放视频
     tm.matchURL(/m.mfuns.net\/video/, () => {
-        /** @type {HTMLDivElement | null} */
-        const el = document.$('.v-window__container .text-h6');
-        if (el) {
-            el.onclick = function () {
+        doc.$('.v-window__container .text-h6')?.set({
+            onclick() {
                 location.host = 'www.mfuns.net';
-            };
-        }
+            },
+        });
     });
     // 视频搬运工具
     tm.matchURL(/www.mfuns.net\/create\/video/, () => {
@@ -58,22 +57,22 @@
         });
         // fns
         async function main({ bvid, desc, pic, title, copyright, owner_name }) {
-            const [formElm, uploadElm] =
-                document.$('.mf-create-video')?.children ?? [];
-            formElm[0].value = title;
-            formElm[0].dispatchEvent(new InputEvent('input'));
-            formElm[3].click();
-            const el = formElm.$('div[contenteditable=true]');
-            if (el) {
-                el.textContent = (
-                    copyright == 1 ? [bvid, `作者：${owner_name}`] : []
+            const [formDom, uploadDom] =
+                doc.$('.mf-create-video')?.children ?? [];
+            formDom[0].value = title;
+            formDom[0].dispatchEvent(new InputEvent('input'));
+            formDom[3].click();
+            const el = formDom.$('div[contenteditable=true]')?.set({
+                textContent: (copyright == 1
+                    ? [bvid, `作者：${owner_name}`]
+                    : []
                 )
                     .concat(desc)
-                    .join('\n');
-            }
-            formElm[1].click();
+                    .join('\n'),
+            });
+            formDom[1].click();
             await setDialog(pic.replace('http://', 'https://'));
-            uploadElm.$('button')?.click();
+            uploadDom.$('button')?.el.click();
             await setDialog(title, bv_api + bvid);
         }
         async function setDialog(...args) {
@@ -126,10 +125,10 @@
             });
         }
         const getCurrentDropdown = () =>
-            document
+            doc
                 .$$('.v-binder-follower-content')
-                .filter((e) => e.childElementCount)[0];
+                .filter((e) => e.el.childElementCount)[0];
         const getCurrentDialog = () =>
-            document.$('.mf-modal-dialog__container-content');
+            doc.$('.mf-modal-dialog__container-content');
     });
 })();
