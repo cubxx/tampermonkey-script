@@ -1,244 +1,346 @@
 // ==UserScript==
-// @name         全局功能
-// @version      0.2
-// @author       Cubxx
-// @match        *://*/*
-// @updateURL    https://github.com/Cubxx/tampermonkey-script/raw/main/src/global.user.js
-// @downloadURL  https://github.com/Cubxx/tampermonkey-script/raw/main/src/global.user.js
-// @icon         https://i1.hdslb.com/bfs/face/a4883ecafbde7d55bb3f3356ce91d14452fcfef9.jpg@120w_120h_1c.avif
-// @grant        none
+// @name        global
+// @version     0.2
+// @author      cubxx
+// @match       *://*/*
+// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
+// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
+// @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%230bf" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
+// @grant       none
 // ==/UserScript==
 
-//事件监听
 (function () {
-    const { Dom, ui, util } = tm;
-    const doc = new Dom(document);
-
-    function copyText() {
-        if (!navigator.clipboard) util.exit('不支持 navigator.clipboard');
+  'use strict';
+  const { $, $$, log, ui, _ } = tm;
+  /** @type {[(e: KeyboardEvent) => boolean, () => void][]} */
+  const listeners = [
+    [
+      (e) => e.shiftKey && e.code === 'KeyC',
+      function copyText() {
+        if (!navigator.clipboard) _.exit('not support navigator.clipboard');
         const text = getSelection()?.toString();
         if (!text) return;
         navigator.clipboard.writeText(text).then(
-            () => ui.snackbar.show('复制成功', 'seagreen'),
-            (err) => ui.snackbar.show('复制失败', 'crimson'),
+          () => ui.snackbar.show('copy success', 'seagreen'),
+          (err) => ui.snackbar.show('copy failed', 'crimson'),
         );
-    }
-    function advancedNav() {
+      },
+    ],
+    [
+      (e) => e.altKey && e.code === 'KeyQ',
+      (function advancedNav() {
         const cfg = {
-            google: 'https://www.google.com/search?q=',
-            'google-scholar': 'https://scholar.google.com/scholar?q=',
-            bing: 'https://www.bing.com/search?cc=us&q=',
-            duck: 'https://duckduckgo.com/?q=',
-            mdn: 'https://developer.mozilla.org/zh-CN/search?q=',
-            github: 'https://github.com/search?q=',
-            'github-user': 'https://github.com/',
-            npm: 'https://www.npmjs.com/search?q=',
-            'npm-pkg': 'https://www.npmjs.com/package/',
-            bili: 'https://search.bilibili.com/all?keyword=',
-            'bili-video': 'https://www.bilibili.com/video/',
-            'bili-user': 'https://space.bilibili.com/',
-            mfuns: 'https://www.mfuns.net/search?q=',
-            youtube: 'https://www.youtube.com/results?search_query=',
-            x: 'https://x.com/search?q=',
-            stackoverflow: 'https://stackoverflow.com/search?q=',
-            zhihu: 'https://www.zhihu.com/search?q=',
-            zhipin: 'https://www.zhipin.com/web/geek/job?query=',
-            steamdb: 'https://steamdb.info/search/?q=',
-            greasyfork: 'https://greasyfork.org/zh-CN/scripts?q=',
-            amap: 'https://ditu.amap.com/search?query=',
-            scihub: 'https://sci-hub.st/',
-            email: 'mailto:',
-            wiki: 'https://wikipedia.org/w/index.php?search=',
+          google: 'https://www.google.com/search?q=',
+          'google.scholar': 'https://scholar.google.com/scholar?q=',
+          bing: 'https://www.bing.com/search?cc=us&q=',
+          duck: 'https://duckduckgo.com/?q=',
+          mdn: 'https://developer.mozilla.org/zh.CN/search?q=',
+          github: 'https://github.com/search?q=',
+          'github.user': 'https://github.com/',
+          npm: 'https://www.npmjs.com/search?q=',
+          'npm.pkg': 'https://www.npmjs.com/package/',
+          bili: 'https://search.bilibili.com/all?keyword=',
+          'bili.video': 'https://www.bilibili.com/video/',
+          'bili.user': 'https://space.bilibili.com/',
+          mfuns: 'https://www.mfuns.net/search?q=',
+          youtube: 'https://www.youtube.com/results?search_query=',
+          x: 'https://x.com/search?q=',
+          stackoverflow: 'https://stackoverflow.com/search?q=',
+          zhihu: 'https://www.zhihu.com/search?q=',
+          zhipin: 'https://www.zhipin.com/web/geek/job?query=',
+          steamdb: 'https://steamdb.info/search/?q=',
+          greasyfork: 'https://greasyfork.org/zh-CN/scripts?q=',
+          amap: 'https://ditu.amap.com/search?query=',
+          scihub: 'https://sci-hub.st/',
+          email: 'mailto:',
+          wiki: 'https://wikipedia.org/w/index.php?search=',
+          xiaohongshu: 'https://www.xiaohongshu.com/search_result?keyword=',
+          pypi: 'https://pypi.org/search/?q=',
+          'pypi.pkg': 'https://pypi.org/project/',
         };
-        let alias = 'bing',
-            content = '';
-        function setContent(e) {
-            content = e.target.value;
-            ui.confirm.update(...updateArgs());
-        }
-        function setAlias(e) {
-            alias = typeof e === 'string' ? e : e.target.value;
-            ui.confirm.update(...updateArgs());
-        }
-        function showCfg(e) {
-            const text = e.target.value;
-            if (!text) return;
-            const aliases = Object.keys(cfg).filter((e) => e.startsWith(text));
-            const items = aliases.map((e) => ({
-                text: e,
-                onclick: () => setAlias(e),
-            }));
-            if (!items.length) return;
-            const el = ui.dialog.dom.$('s-text-field');
-            el && ui.menu.show(items, el);
+        const dom = ui.dialog.dom;
+        function goto() {
+          const el = dom.$('s-picker-item[selected]')?.el;
+          if (!el) return;
+          el.attributes.removeNamedItem('selected');
+          const alias = el.textContent;
+          const content = dom.$('textarea')?.el.value;
+          _.hasOwnKey(cfg, alias ?? '')
+            ? window.open(cfg[alias] + content, '_blank')
+            : ui.snackbar.show(`not support ${alias}`, 'crimson');
         }
         const comp = () => lit.html`
-<div style="${Dom.style({
-            margin: '15px 20px 0',
-            font: 'large Consolas',
-            display: 'grid',
-            gridTemplateColumns: '1fr 2fr',
-            gap: '10px',
-        })}">
-<s-text-field label="别名" style="min-width: auto;">
-    <input .value=${alias} @blur=${setAlias} @input=${showCfg} type="text"/>
-</s-text-field>
-<s-text-field label="内容">
-    <textarea .value=${content} @blur=${setContent}></textarea>
-</s-text-field>
-<i style="${Dom.style({
-            gridColumnStart: 1,
-            gridColumnEnd: 3,
-            fontSize: 'small',
-        })}">${cfg[alias] ?? 'https://...'}</i>
-</div>`;
-        function search(target) {
-            if (!util.hasOwnKey(cfg, alias)) {
-                ui.snackbar.show(`${alias} 别名无效`, 'crimson');
-                return;
-            }
-            const url = cfg[alias] + content;
-            window.open(url, target);
-        }
-        const updateArgs = () =>
-            /** @type {Parameters<typeof ui.confirm.show>} */ ([
-                '快速导航',
-                comp(),
-                ['新建', () => search('_blank')],
-                ['覆盖', () => search('_self')],
-            ]);
-
-        ui.confirm.show(...updateArgs());
-        const el = ui.confirm.dom.$('s-text-field textarea')?.el;
-        if (!el) return;
-        el.focus();
-        el.setSelectionRange(-1, -1);
-    }
-    function FnPanel() {
-        /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>} */
-        const FnBtns = [
-            {
-                text: '设计模式',
-                style: {
-                    background: document.designMode === 'on' ? '#bbb' : '',
-                },
-                onclick() {
-                    util.toggle(document, 'designMode', ['on', 'off']);
-                },
+      <div style="${$.style({
+        margin: '15px 20px',
+        'font-family': 'Consolas',
+      })}"
+        @keydown=${(e) => {
+          e.stopImmediatePropagation();
+          if (e.key === 'Enter' && e.target.tagName === 'TEXTAREA') {
+            dom.$('s-picker')?.el.toggle();
+          } else if (e.key === 'ArrowUp') {
+          }
+        }}>
+        <s-text-field label="Content">
+          <textarea tabindex="0" autofocus></textarea>
+        </s-text-field>
+        <s-picker label="Alias" style="color: #0096d2" @change=${goto}>
+          ${_.map(
+            cfg,
+            (v, k) =>
+              lit.html`<s-picker-item .textContent=${k} style="${$.style({
+                height: 'auto',
+                'justify-content': 'flex-start',
+              })}"></s-picker-item>`,
+          )}
+        </s-picker>
+      </div>`;
+        return () => {
+          ui.dialog.show('Nav', comp());
+          dom.$('textarea')?.el.setSelectionRange(-1, -1);
+        };
+      })(),
+    ],
+    [
+      (e) => e.altKey && e.code === 'KeyS',
+      (function FnPanel() {
+        /** @typedef {NonNullable<Parameters<typeof ui.dialog.show>[2]>} Btns */
+        /** @type {Btns} */
+        const pageBtns = [];
+        /**
+         * @type {(
+         *   | [RegExp | string, string, () => void]
+         *   | [RegExp | string, () => void]
+         * )[]}
+         */
+        const confgis = [
+          [
+            /github.(com|io)/,
+            'Github Page',
+            () => {
+              const url = new URL(location.href);
+              if (url.host === 'github.com') {
+                const [_, usr, rep] = url.pathname.split('/');
+                window.open(`https://${usr}.github.io/${rep ?? ''}`);
+              } else if (url.host.endsWith('.github.io')) {
+                const usr = url.host.replace('.github.io', '');
+                const [_, rep] = url.pathname.split('/');
+                window.open(`https://github.com/${usr}/${rep ?? ''}`);
+              } else {
+                ui.snackbar.show('not support this page', 'crimson');
+              }
             },
-        ];
-        tm.matchURL(/github.(com|io)/) &&
-            FnBtns.push({
-                text: 'Github Page',
-                onclick() {
-                    const url = new URL(location.href);
-                    if (url.host === 'github.com') {
-                        const [_, author, rep] = url.pathname.split('/');
-                        window.open(`https://${author}.github.io/${rep}`);
-                    } else if (url.host.endsWith('.github.io')) {
-                        const author = url.host.replace('.github.io', '');
-                        const [_, rep] = url.pathname.split('/');
-                        window.open(`https://github.com/${author}/${rep}`);
-                    } else {
-                        ui.snackbar.show('当前路径不支持转换', 'crimson');
-                    }
+          ],
+          [
+            /github.com\/.+\/.+$/,
+            'Stargazers',
+            () => window.open(`${location.href}/stargazers`),
+          ],
+          [
+            'zhihu.com',
+            'Clear Inbox',
+            async () => {
+              const { data } = await fetch('/api/v4/inbox').then((e) =>
+                e.json(),
+              );
+              await Promise.allSettled(
+                data.map(({ participant: { id } }) =>
+                  fetch(`https://www.zhihu.com/api/v4/chat?sender_id=${id}`, {
+                    method: 'delete',
+                  }).then((e) => e.json()),
+                ),
+              );
+            },
+          ],
+          [
+            'chatgpt.com',
+            'Clear Conversation',
+            async () => {
+              const token = prompt('token');
+              await Promise.all(
+                $$('nav li a').map(({ el }) => {
+                  const id = el.href.match(/[^\/]+$/)?.[0];
+                  return fetch(`/backend-api/conversation/${id}`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                      'Oai-Device-Id': (
+                        localStorage.getItem('oai-did') ?? ''
+                      ).replaceAll('"', ''),
+                      'Oai-Language': 'en-US',
+                    },
+                    body: JSON.stringify({ is_visible: false }),
+                  });
+                }),
+              );
+              log('clear conversation success');
+            },
+          ],
+          [
+            'microsoft.com',
+            'Clear Conversation',
+            () => {
+              window.open(
+                'https://account.microsoft.com/privacy/copilot',
+                '_blank',
+              );
+            },
+          ],
+          [
+            'kimi.moonshot.cn',
+            'Clear Conversation',
+            async () => {
+              const { promise, resolve } = Promise.withResolvers();
+              /** @type {MutationObserver} */
+              let ob;
+              $(document.body).observe(
+                (_ob) => {
+                  $('.MuiDialogActions-root button:last-child')?.el.click();
+                  ob = _ob;
                 },
-            });
-        ui.dialog.show('', '', FnBtns);
-    }
-    doc.on(
-        'keydown',
-        (e) => {
-            if (e.ctrlKey && e.code === 'KeyC') copyText();
-            if (e.altKey && e.code === 'KeyQ') advancedNav();
-            if (e.altKey && e.code === 'KeyS') FnPanel();
-        },
-        true,
-    );
-})();
-
-//广告删除
-(function () {
-    'use strict';
-    if (self != top) return;
-    const { Dom } = tm;
-    const doc = new Dom(document);
-    function globalADs() {
-        const ads = [
-            [
-                '.adsbygoogle', //google
-                '.pb-ad', //google
-                '.google-auto-placed', //google
-                '.ap_container', //google
-                '.ad', //google
-                '.b_ad', //bing-搜索
-                '.Pc-card', //zhihu-首页
-                '.Pc-word', //zhihu-问题
-                '.unionAd', //baidu-百科
-                '.jjjjasdasd', //halihali
-                '.ytd-ad-slot-renderer', //ytb
-                '.Ads', //nico
-                '.ads', //nico
-                '.baxia-dialog', //高德地图
-                '.sufei-dialog', //高德地图
-                '.app-download-panel', //高德地图
-                '.pop-up-comp', //有道翻译
-                '.ai-guide', //有道翻译
-                '#player-ads', //ytb
-                '#masthead-ad', //ytb
-                'ytd-ad-slot-renderer', //ytb
-                '#google_esf', //google
-                'li[data-layout=ad]', //duck
-            ].map((e) => doc.$$(e)),
-            /** @type {const} */ ([
-                ['iframe', 'src', /googleads/],
-                ['iframe', 'src', /app.moegirl/],
-                ['iframe', 'src', /ads.nicovideo.jp/],
-                // ['div', 'innerText', /^(oversea AD\n)?(加载中|广告)$/],
-            ]).map(([s, key, reg]) =>
-                doc.$$(s).filter(({ el }) => reg.test(el[key])),
-            ),
-        ]
-            .flat(2)
-            .map((e) => (e.hide(), e.el));
-        console.debug('globalAD', ads);
-    }
-    requestIdleCallback(globalADs);
-    window.addEventListener('load', globalADs);
-})();
-
-//直接跳转
-(function () {
-    'use strict';
-    const arr = {
-        'link.zhihu.com': null, //知乎
-        'link.csdn.net': null, //CSDN
-        'link.juejin.cn': null, //掘金
-        'c.pc.qq.com': (sp) => {
-            const url = sp.get('url') || sp.get('pfurl');
-            return url.includes('://') ? url : 'https://' + url;
-        }, //QQ
-        'gitee.com/link': null, // gitee
-        'www.jianshu.com/go-wild': (sp) => sp.get('url'), //简书
-        'docs.qq.com/scenario/link.html': (sp) => sp.get('url'), //腾讯文档
-        'afdian.net/link': null, //爱发电
-        'mail.qq.com/cgi-bin/readtemplate': (sp) => sp.get('gourl'),
-    };
-    for (let path in arr) {
-        if (location.href.includes(path)) {
-            const sp = new URL(document.URL).searchParams;
-            location.href = arr[path]?.(sp) || sp.get('target');
-        }
-    }
+                { childList: true },
+              );
+              const timer = setInterval(() => {
+                const btns = $$('div[class*=contentBox] div[class*=delBtn]');
+                if (!btns.length) resolve(0);
+                (function addTask() {
+                  const btn = btns.pop();
+                  btn &&
+                    setTimeout(
+                      () => {
+                        btn.el.click();
+                        addTask();
+                      },
+                      Math.random() * 5e2 + 5e2,
+                    );
+                })();
+              }, 1e3);
+              promise.then(() => {
+                ob.disconnect();
+                clearInterval(timer);
+                log('clear conversation success');
+              });
+            },
+          ],
+        ];
+        tm.matchURL(
+          //@ts-ignore
+          ...confgis.map((e) =>
+            e.length === 3
+              ? [e[0], () => pageBtns.push({ text: e[1], onclick: e[2] })]
+              : e,
+          ),
+        );
+        /** @type {Btns} */
+        const commonBtns = [
+          {
+            text: 'Design Mode',
+            onclick() {
+              _.toggle(document, 'designMode', ['on', 'off']);
+              _.toggle(this.style, 'opacity', ['0.5', '1']);
+            },
+          },
+        ].map((e) => {
+          Object.assign((e.style ??= {}), { background: 'seagreen' });
+          return e;
+        });
+        return () => ui.dialog.show('', '', commonBtns.concat(pageBtns));
+      })(),
+    ],
+  ];
+  $(document).on(
+    'keydown',
+    (e) => {
+      for (const [is, fn] of listeners)
+        if (is(e)) return e.stopImmediatePropagation(), fn();
+    },
+    true,
+  );
 })();
 
 (function () {
-    'use strict';
-    if (self != top) return;
-    const { Dom, ui, util } = tm;
-    const doc = new Dom(document);
+  'use strict';
+  if (self != top) return;
 
-    tm.matchURL(/bing.com/, () => {
+  tm.rmAD('global', [
+    '.adsbygoogle', //google
+    '.pb-ad', //google
+    '.google-auto-placed', //google
+    '.ap_container', //google
+    '.ad', //google
+    '.b_ad', //bing
+    '.Pc-card', //zhihu-首页
+    '.Pc-Business-Card-PcTopFeedBanner', //zhihu-首页
+    '.Pc-word', //zhihu-问题
+    '.jjjjasdasd', //halihali
+    '.Ads', //nico
+    '.ads', //nico
+    '.baxia-dialog', //amap
+    '.sufei-dialog', //amap
+    '.app-download-panel', //amap
+    '#player-ads', //ytb
+    '#masthead-ad', //ytb
+    'ytd-ad-slot-renderer', //ytb
+    '#google_esf', //google
+    'li[data-layout=ad]', //duck
+    'img[alt=AD]', //acgbox
+    'div[id="1280_adv"]',
+    '.c-ad', //nature
+    '.wwads-container', //vitepress
+    '.VPDocAsideCarbonAds', //vitepress
+    '.carbonads-responsive',
+    '.cpc-ad',
+    '[id^=google_ads]',
+    'iframe[src*="googleads"]',
+    'iframe[src*="app.moegirl"]',
+    'iframe[src*="ads.nicovideo.jp"]',
+  ]);
+})();
+
+(function () {
+  'use strict';
+  /**
+   * @type {Record<
+   *   string,
+   *   ((sp: URLSearchParams) => string | null) | null
+   * >}
+   */
+  const arr = {
+    'link.zhihu.com': null,
+    'link.csdn.net': null,
+    'link.juejin.cn': null,
+    'c.pc.qq.com': (sp) => {
+      const url = sp.get('url') || sp.get('pfurl');
+      return url && (url.includes('://') ? url : 'https://' + url);
+    },
+    'gitee.com/link': null,
+    'www.jianshu.com/go-wild': (sp) => sp.get('url'),
+    'docs.qq.com/scenario/link.html': (sp) => sp.get('url'),
+    'afdian.com/link': null,
+    'mail.qq.com/cgi-bin/readtemplate': (sp) => sp.get('gourl'),
+  };
+  for (let path in arr) {
+    if (location.href.includes(path)) {
+      const sp = new URL(document.URL).searchParams;
+      const target = arr[path]?.(sp) ?? sp.get('target');
+      if (target) location.href = target;
+      else return tm.log("can't skip this url");
+    }
+  }
+})();
+
+(function () {
+  'use strict';
+  if (self != top) return;
+  const { $, $$, hack, log, _ } = tm;
+
+  document.documentElement.style.fontSize = '16px';
+  tm.matchURL(
+    [
+      'bing.com',
+      () => {
         const url = new URL(location.href);
         if (url.pathname === '/ck/a') return;
         const search = url.searchParams;
@@ -246,155 +348,124 @@
         search.set('cc', 'us');
         search.delete('mkt');
         location.search = search + '';
-    });
-    tm.matchURL(/www.bing.com\/(search|chat)\?/, () => {
-        //界面优化
-        let times = 0;
-        doc.$('body')?.observe(
-            function (ob) {
-                const main = doc.$('cib-serp')?.shadowRoot;
-                if (!main) return;
-                doc.$('#id_h')?.set({
-                    style: { right: 'calc(40px - calc(100vw - 100%))' },
-                });
-                //左布局
-                const conversation = main.$('#cib-conversation-main')
-                    ?.shadowRoot?.children[0];
-                if (!conversation) return;
-                const sidePanel = conversation.$('.side-panel');
-                const scroller = conversation.$('.scroller');
-                if (!sidePanel || !scroller) return;
-                sidePanel.mount(
-                    scroller,
-                    conversation.$('.scroller-positioner') ?? 0,
-                );
-                const inputBox = main.$('#cib-action-bar-main');
-                inputBox?.set({ style: 'right: 0px;margin: 0;' });
-                //清空会话
-                const surface = main
-                    .$('#cib-conversation-main')
-                    ?.children[0].shadowRoot?.$('.threads-container .surface');
-                if (!surface) return;
-                const threads = surface.$('.threads');
-                if (!threads) return;
-                if (times) return ob.disconnect();
-                const clearBtn = Dom.h('input', {
-                    type: 'button',
-                    value: '清空会话',
-                    class: 'show-recent',
-                    onclick() {
-                        threads.$$('cib-thread').forEach((e) => {
-                            e.shadowRoot?.$('.delete')?.el['click']();
-                            setTimeout(() => {
-                                e.shadowRoot?.$('.confirm')?.el['click']();
-                            }, 50);
-                        });
-                    },
-                });
-                clearBtn.mount(surface);
-                //历史会话
-                surface.observe(
-                    function (ob) {
-                        surface.$('button')?.hide();
-                        ob.disconnect();
-                    },
-                    { childList: true },
-                );
-                threads.observe(
-                    function () {
-                        threads
-                            .$$('cib-thread')
-                            ?.forEach((e) => e.el.removeAttribute('hide'));
-                    },
-                    { childList: true },
-                );
-                times++;
-                ob.disconnect();
-            },
-            { childList: true },
-        );
-    });
-
-    tm.matchURL(/developer.mozilla.org\/[\w-]+\/docs/, () => {
+      },
+    ],
+    [
+      /developer.mozilla.org\/[\w-]+\/docs/,
+      () => {
         if (location.href.includes('zh-CN')) return;
         if (history.length > 2) return;
         history.pushState(
-            null,
-            '',
-            (location.href = location.href.replace(
-                /\/([\w-]+)\/docs/,
-                '/zh-CN/docs',
-            )),
+          null,
+          '',
+          (location.href = location.href.replace(
+            /\/([\w-]+)\/docs/,
+            '/zh-CN/docs',
+          )),
         );
-    });
+      },
+    ],
 
-    tm.matchURL(/www.zhihu.com\/(follow)?$/, () => {
-        doc.$('#TopstoryContent')?.on('click', (e) => {
-            //@ts-ignore
-            if (e.target.classList[1] != 'ContentItem-more') return;
-            //@ts-ignore
-            const el = e.target.parentElement?.parentElement?.parentElement;
-            el.observe(
-                function (ob) {
-                    const childrens = [...el.children];
-                    const time = childrens.filter((e) =>
-                        /(发布|编辑)于/.test(e.innerText),
-                    )[0];
-                    const vote = childrens.filter((e) =>
-                        /赞同了该(回答|文章)/.test(e.innerText),
-                    )[0];
-                    if (vote) vote.hide();
-                    if (!time) return console.log('找不到日期元素');
-                    el.insertBefore(time, el.children[0]);
-                    el.$('.ContentItem-time').innerHTML +=
-                        '<br>段落数 ' + el.$$('.RichContent-inner p').length;
-                    ob.disconnect();
-                },
-                { childList: true },
-            );
+    [
+      /www.zhihu.com\/(follow)?$/,
+      () => {
+        $('#TopstoryContent')?.on('click', (e) => {
+          const target = /** @type {HTMLElement} */ (e.target);
+          if (target.classList[1] != 'ContentItem-more') return;
+          const el = target.parentElement?.parentElement?.parentElement;
+          if (!el) return;
+          const dom = $(el);
+          dom.observe(
+            function (ob) {
+              const childrens = dom.$$('div');
+              const time = childrens.find(({ el }) =>
+                /(发布|编辑)于/.test(el.innerText),
+              );
+              const vote = childrens.find(({ el }) =>
+                /赞同了该(回答|文章)/.test(el.innerText),
+              );
+              vote?.hide();
+              if (!time) return log('time not found');
+              time.mount(dom, 0);
+              time.el.innerHTML += `<p>段落数 ${dom.$$('.RichContent-inner p').length}</p>`;
+              ob.disconnect();
+            },
+            { childList: true },
+          );
         });
-        async function delAllMsg() {
-            const { data } = await fetch(
-                'https://www.zhihu.com/api/v4/inbox',
-            ).then((res) => res.json());
-            const results = await Promise.allSettled(
-                data.map(({ participant: { id } }) =>
-                    fetch(`https://www.zhihu.com/api/v4/chat?sender_id=${id}`, {
-                        method: 'delete',
-                    }).then((res) => res.json()),
-                ),
-            );
-            console.log('删除所有私信', results);
-        }
-    });
-    tm.matchURL(/www.zhihu.com\/question/, () => {
-        doc.$('.App-main .QuestionHeader-title')?.set({
-            title: `创建时间doc.${
-                doc.$('meta[itemprop=dateCreated]')?.el.content
-            }\n修改时间doc.${doc.$('meta[itemprop=dateModified]')?.el.content}`,
+      },
+    ],
+    [
+      'www.zhihu.com/question',
+      () => {
+        $('.App-main .QuestionHeader-title')?.set({
+          title: `Create on ${
+            $('meta[itemprop=dateCreated]')?.el.content
+          }\nEdit on${$('meta[itemprop=dateModified]')?.el.content}`,
         });
-        doc.$('header')?.hide();
-    });
-    tm.matchURL(/zhuanlan.zhihu.com\/p/, () => {
-        doc.$('.ContentItem-time')?.mount('article', '.Post-RichTextContainer');
-    });
+        $('header')?.hide();
+      },
+    ],
+    [
+      'zhuanlan.zhihu.com/p',
+      () => {
+        $('.ContentItem-time')?.mount('article', '.Post-RichTextContainer');
+      },
+    ],
 
-    tm.matchURL(/heroicons.dev/, () => {
-        doc.$('#root > aside.sidebar-2 > div')?.hide();
-    });
-
-    tm.matchURL(/www.pixiv.net\/artworks/, () => {
-        const list = [
-            'aside > div',
-            '.charcoal-token > div > div:nth-child(2) > div:nth-child(2)',
-            '.charcoal-token > div > div:nth-child(3) > div > div > div:nth-child(2)',
-        ];
+    [
+      'heroicons.dev',
+      () => {
+        $('#root > aside.sidebar-2 > div')?.hide();
+      },
+    ],
+    [
+      'www.pixiv.net/artworks',
+      () => {
         function delADs() {
-            list.forEach((e) => doc.$(e)?.hide());
+          $$('iframe').forEach((e) => e.hide());
         }
-        delADs();
-        doc.$('body')?.observe(delADs, { childList: true });
-    });
-
-    tm.matchURL(/[^]+?.github.io\//, () => {});
+        // delADs();
+        $('body')?.observe(delADs, { childList: true });
+      },
+    ],
+    [
+      'www.acgbox.link',
+      () => {
+        $$('a.card').map((e) => {
+          e.set({ href: e.el.dataset.url });
+        });
+      },
+    ],
+    [
+      'nature.com',
+      () => {
+        ['c-hero__link', 'c-card__link', 'u-faux-block-link'].map((c) =>
+          $$(`a.${c}`).map((e) => {
+            e.el.classList.remove(c);
+            e.el.classList.add('u-link-inherit');
+          }),
+        );
+      },
+    ],
+    [
+      'x.com',
+      () => {
+        $(document.body).observe(
+          (ob) => {
+            const root = $(':has(>div[data-testid="cellInnerDiv"])');
+            if (!root) return;
+            root.observe(
+              tm.rmAD('x', [
+                'div[data-testid="cellInnerDiv"]:has(article div[id]>.r-1awozwy>svg)',
+              ]),
+              { childList: true },
+            );
+            ob.disconnect();
+          },
+          { childList: true, subtree: true },
+        );
+      },
+    ],
+  );
 })();
