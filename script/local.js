@@ -13,10 +13,6 @@ async function walkFile(dir, callback) {
         }
     }
 }
-/** @param {string} dir */
-function makedirs(dir) {
-    return fs.access(dir).catch(() => fs.mkdir(dir, { recursive: true }));
-}
 /** @param {string} path */
 async function toMetadata(path) {
     const f = await fs.open(path);
@@ -56,11 +52,14 @@ async function toMetadata(path) {
 /** @param {string} name @param {string} newText */
 async function updateFile(name, newText) {
     const path = p.join(dest, name);
-    const oldText = await fs.readFile(path, 'utf-8');
+    const oldText = await fs.access(path).then(
+        () => fs.readFile(path, 'utf-8'),
+        () => '',
+    );
     if (oldText !== newText) {
         fs.writeFile(path, newText, 'utf-8');
-        // 安装新脚本
         exec('start msedge ' + p.join(workspaceURL, dest, name));
+        console.log('Update: ' + path);
     } else {
         console.log('No changes: ' + path);
     }
@@ -69,7 +68,7 @@ async function updateFile(name, newText) {
 const workspaceURL = 'file:///' + process.cwd().replaceAll(p.sep, '/');
 const src = 'src';
 const dest = 'local';
-makedirs(dest);
+fs.mkdir(dest, { recursive: true });
 walkFile(src, (path, name) => {
     toMetadata(path)
         .then((data) => updateFile(name, data), console.log)
