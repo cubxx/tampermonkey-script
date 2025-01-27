@@ -2,6 +2,7 @@ import { exec } from 'child_process';
 import fs from 'fs/promises';
 import pth from 'path';
 import { createInterface, Interface } from 'readline';
+import { pathToFileURL } from 'url';
 
 /** @param {string} filepath */
 async function readline(filepath, replace = false) {
@@ -24,8 +25,8 @@ async function readline(filepath, replace = false) {
     output: output.createWriteStream(),
     terminal: false,
   }).on('close', async () => {
-    await input.close();
-    await output.close();
+    // await input.close();
+    // await output.close();
     await fs.rename(tmppath, filepath);
   });
 }
@@ -79,7 +80,8 @@ function eachline(rl) {
   return h;
 }
 
-const cfg = /** @type {const} */ ({ dest: '.proxy', src: 'src' });
+const browser = prompt('Enter browser:') || 'chrome';
+const cfg = /** @type {const} */ ({ dest: '.meta', src: 'src' });
 /** @typedef {[string, string][]} Metadata */
 const meta = {
   /** @param {string} text @returns {Metadata} */
@@ -124,6 +126,7 @@ const file = {
   /** @param {string} filepath @param {Metadata} data */
   async update(filepath, data) {
     const rl = await readline(filepath, true);
+    //@ts-ignore
     const write = (line) => rl.output.write(line + '\n');
     eachline(rl)
       .on('before-meta', (line) => {
@@ -135,17 +138,9 @@ const file = {
   },
 };
 const _ = {
-  /**
-   * @param {string} name
-   * @param {'local' | 'url'} type
-   */
-  resolve(name, dir = cfg.src, type = 'local') {
-    return {
-      local: () => pth.resolve(dir, name).replaceAll('\\', '/'),
-      url: () =>
-        `https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/${dir}/${name}`,
-    }[type]();
-  },
+  resolve: (name, dir) => pth.resolve(dir, name).replaceAll('\\', '/'),
+  resolveURL: (name, dir) =>
+    `https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/${dir}/${name}`,
   /** @param {(name: string) => void} cb */
   async eachFile(dir, cb) {
     for await (const item of await fs.opendir(dir)) {
@@ -153,20 +148,24 @@ const _ = {
       cb(item.name);
     }
   },
+  install(url) {
+    if (!url.endsWith('.user.js')) return;
+    exec(`${browser} ${url}`);
+  },
 };
 const app = {
   src() {
     _.eachFile(cfg.src, async (name) => {
-      const filepath = _.resolve(name);
+      const filepath = _.resolve(name, cfg.src);
       const data = await file.parse(filepath);
       for (const e of data) {
         const key = e[0];
         if (key === 'name') {
           e[1] = pth.basename(filepath, '.user.js');
         } else if (key === 'require') {
-          e[1] = _.resolve(...e[1].split('/').slice(-2).reverse(), 'url');
+          e[1] = _.resolveURL(...e[1].split('/').slice(-2).reverse());
         } else if (key.endsWith('URL')) {
-          e[1] = _.resolve(...filepath.split('/').slice(-2).reverse(), 'url');
+          e[1] = _.resolveURL(...filepath.split('/').slice(-2).reverse());
         }
       }
       file.update(filepath, data);
@@ -175,33 +174,34 @@ const app = {
   async proxy() {
     await fs.mkdir(cfg.dest, { recursive: true });
     _.eachFile(cfg.src, async (name) => {
-      const filepath = _.resolve(name);
+      const filepath = _.resolve(name, cfg.src);
       const newData = (await file.parse(filepath)).filter(
         ([k]) => k !== 'downloadURL',
       );
       for (const e of newData) {
         if (e[0] === 'require') {
-          e[1] = 'file:///' + _.resolve(...e[1].split('/').slice(-2).reverse());
+          const [dir, name] = e[1].split('/').slice(-2);
+          e[1] = `http://127.0.0.1:${process.env.PORT}/${dir}/${name}`;
         } else if (e[0] === 'updateURL') {
           e[0] = 'require';
-          e[1] = 'file:///' + filepath;
+          e[1] = `http://127.0.0.1:${process.env.PORT}/${cfg.src}/${name}`;
         }
       }
       const metapath = _.resolve(name, cfg.dest);
       const oldData = await file.parse(metapath);
       if (oldData.toString() !== newData.toString()) {
         await file.update(metapath, newData);
-        exec('start msedge ' + metapath);
+        _.install(metapath);
         console.log('Update: ' + name);
       } else {
         console.log('No change: ' + name);
       }
     });
   },
-  proxy_force() {
+  proxy_f() {
     _.eachFile(cfg.dest, async (name) => {
       const metapath = _.resolve(name, cfg.dest);
-      exec('start msedge ' + metapath);
+      _.install(metapath);
     });
   },
 };

@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name        mfuns-h
 // @version     0.1
-// @author      Cubxx
+// @author      cubxx
 // @include     /https\:\/\/(www|m)\.mfuns\.net\//
-// @updateURL   https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/mfuns-h.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/mfuns-h.user.js
+// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/mfuns-h.user.js
+// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/mfuns-h.user.js
 // @icon        https://www.mfuns.net/favicon.ico
 // @grant       none
 // ==/UserScript==

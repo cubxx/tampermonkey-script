@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name        shnu-h
 // @version     0.1
-// @author      Cubxx
+// @author      cubxx
 // @match       *://*.shnu.edu.cn/*
 // @match       *://shnu.fy.chaoxing.com/portal
-// @updateURL   https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/shnu-h.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/shnu-h.user.js
+// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/shnu-h.user.js
+// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/shnu-h.user.js
 // @icon        https://cas.shnu.edu.cn/cas/comm/image/shnuicon.ico
 // @grant       none
 // ==/UserScript==

@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name        chaoxing-h
 // @version     0.1
-// @author      Cubxx
+// @author      cubxx
 // @match       https://*.chaoxing.com/*
 // @icon        https://www.chaoxing.com/images/favicon.ico
-// @updateURL   https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/chaoxing-h.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/chaoxing-h.user.js
+// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/chaoxing-h.user.js
+// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/chaoxing-h.user.js
 // @grant       none
 // ==/UserScript==
 

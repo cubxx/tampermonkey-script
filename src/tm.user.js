@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name        tm
 // @version     0.2
-// @author      Cubxx
+// @author      cubxx
 // @match       *://*/*
-// @updateURL   https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/tm.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/tm.user.js
-// @require     https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/lib/lit.js
-// @require     https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/lib/sober.js
+// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/tm.user.js
+// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/tm.user.js
+// @require     https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/lib/lit.js
+// @require     https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/lib/sober.js
 // @run-at      document-start
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%23bf0" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
@@ -170,7 +170,8 @@ const tm = (function () {
         value(...e) {
           ('' + e[0]).includes('debugger')
             ? tm.log('disabled setInterval')
-            : value.apply(this, e);
+            : //@ts-ignore
+              value.apply(this, e);
         },
       }));
     },

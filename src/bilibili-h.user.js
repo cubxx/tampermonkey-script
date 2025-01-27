@@ -1,12 +1,12 @@
 // ==UserScript==
 // @name        bilibili-h
 // @version     0.1
-// @author      Cubxx
+// @author      cubxx
 // @match       https://*.bilibili.com/*
 // @exclude     https://api.bilibili.com/*
 // @exclude     https://api.vc.bilibili.com/*
-// @updateURL   https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/bilibili-h.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/bilibili-h.user.js
+// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/bilibili-h.user.js
+// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/bilibili-h.user.js
 // @icon        https://www.bilibili.com/favicon.ico
 // @grant       none
 // ==/UserScript==
@@ -315,7 +315,7 @@ tm['deleteADs']();
         };
 
         // 再次除广告
-        $('.right-container-inner')?.observe(tm['deleteADs'], {
+        $('.left-container')?.observe(tm['deleteADs'], {
           childList: true,
         });
         // 宽屏模式

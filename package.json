@@ -1,12 +1,15 @@
 {
   "type": "module",
   "scripts": {
+    "dev": "bun scripts/server.js",
     "format": "prettier --write 'src/**/*' 'types/**/*' 'scripts/**/*'",
     "type-check": "tsc --noEmit",
     "meta": "node scripts/meta.js",
     "lib": "node scripts/lib.js"
   },
   "devDependencies": {
+    "@types/bun": "^1.1.17",
+    "@types/node": "^22.10.2",
     "@types/wicg-file-system-access": "^2023.10.5",
     "csstype": "^3.1.3",
     "lit-html": "^3.2.1",

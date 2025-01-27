@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name        global
 // @version     0.2
-// @author      Cubxx
+// @author      cubxx
 // @match       *://*/*
-// @updateURL   https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/global.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/global.user.js
+// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
+// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%230bf" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
 // ==/UserScript==
@@ -287,6 +287,8 @@
   'use strict';
   if (self != top) return;
   const { $, $$, hack, log, _ } = tm;
+
+  document.documentElement.style.fontSize = '16px';
   tm.matchURL(
     [
       'bing.com',

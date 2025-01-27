@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name        tm-ui
 // @version     0.2
-// @author      Cubxx
+// @author      cubxx
 // @match       *://*/*
-// @updateURL   https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/tm-ui.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/Cubxx/tampermonkey-script/src/tm-ui.user.js
+// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/tm-ui.user.js
+// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/tm-ui.user.js
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%23bff" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
 // ==/UserScript==
