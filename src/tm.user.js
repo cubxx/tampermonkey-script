@@ -285,6 +285,13 @@ const tm = (function () {
         },
       }));
     },
+    disableConsoleClear() {
+      hack.override(console, 'clear', ({ value }) => ({
+        value() {
+          log.debug('console.clear() is disabled');
+        },
+      }));
+    },
   };
   /** @see https://developer.mozilla.org/docs/Glossary/CSS_Selector */
   const $ = Object.assign(
@@ -797,49 +804,52 @@ const tm = (function () {
   };
   /** Communicate between tabs */
   const comm = {
-    signal: 'tm.comm signal',
+    signal: 'tm.comm:signal',
     /**
      * @param {string} target
      * @param {{ [x: string]: Serializable }} data
-     * @returns {Promise<null>}
+     * @returns {Promise<Window | null>}
      */
     send(target, data) {
       data[comm.signal] = true;
+      const win = window.open(target, '_blank', 'noopener=no');
+      const targetOrigin = new URL(target).origin;
+      const { promise, resolve } = Promise.withResolvers();
       /** @param {MessageEvent} e */
       function cb(e) {
         e.origin === targetOrigin && e.data == comm.signal && stop();
       }
       /** @param {string} [msg] */
       function stop(msg) {
-        msg ?? log.error(msg);
+        msg ? log.error(msg) : log(`receive stop signal: ${targetOrigin}`);
         window.removeEventListener('message', cb);
         clearInterval(timer);
-        resolve(null);
+        resolve(win);
       }
-      const { promise, resolve } = Promise.withResolvers();
-      const win = window.open(target);
-      const targetOrigin = new URL(target).origin;
       const timer = setInterval(() => {
-        if (!win) return stop('win was blocked');
-        if (win.closed) return stop('win was closed');
+        if (!win) return stop(`win was blocked: ${targetOrigin}`);
+        if (win.closed) return stop(`win was closed: ${targetOrigin}`);
         win.postMessage(data, targetOrigin);
       }, 1e3);
       window.addEventListener('message', cb);
       return promise;
     },
-    /** @param {string} sourceOrigin */
-    receive(sourceOrigin) {
+    /** @param {(origin: string) => boolean} [checkOrigin] */
+    receive(checkOrigin) {
       let shouldStop = false;
       const { promise, resolve } = Promise.withResolvers();
       window.addEventListener('message', (e) => {
         if (shouldStop) {
           const source = e.source;
-          if (source instanceof Window)
-            source.postMessage(comm.signal, e.origin);
-          else log("source is not Window, can't send stop signal", source);
+          /** @ts-ignore */
+          if (source) source.postMessage(comm.signal, e.origin);
+          else {
+            log.warn("source is null, can't send stop signal", source);
+            debugger;
+          }
           return;
         }
-        if (e.origin !== sourceOrigin || !e.data[comm.signal]) return;
+        if (checkOrigin?.(e.origin) || !e.data[comm.signal]) return;
         log('receive signal', e.data);
         resolve(e.data);
         shouldStop = true;
@@ -1010,5 +1020,5 @@ tm.matchURL(
   ['fanyi.youdao.com', () => tm.hack.enableDevtool('chunk-vendors')],
   ['xiaoeknow.com', () => tm.hack.infDebugger()],
   ['copilot.microsoft.com', () => tm.hack.trustedTypes('@centro/hvc-loader')],
-  ['chatgpt.com', () => tm.hack.eventIsTrusted()],
+  ['chatgpt.com', () => tm.hack.disableConsoleClear()],
 );

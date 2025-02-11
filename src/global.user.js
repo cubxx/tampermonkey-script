@@ -9,6 +9,7 @@
 // @grant       none
 // ==/UserScript==
 
+/** Features */
 (function () {
   'use strict';
   const { $, $$, log, ui, _ } = tm;
@@ -104,149 +105,18 @@
     [
       (e) => e.altKey && e.code === 'KeyS',
       (function FnPanel() {
-        /** @typedef {NonNullable<Parameters<typeof ui.dialog.show>[2]>} Btns */
-        /** @type {Btns} */
-        const pageBtns = [];
-        /**
-         * @type {(
-         *   | [RegExp | string, string, () => void]
-         *   | [RegExp | string, () => void]
-         * )[]}
-         */
-        const confgis = [
-          [
-            /github.(com|io)/,
-            'Github Page',
-            () => {
-              const url = new URL(location.href);
-              if (url.host === 'github.com') {
-                const [_, usr, rep] = url.pathname.split('/');
-                window.open(`https://${usr}.github.io/${rep ?? ''}`);
-              } else if (url.host.endsWith('.github.io')) {
-                const usr = url.host.replace('.github.io', '');
-                const [_, rep] = url.pathname.split('/');
-                window.open(`https://github.com/${usr}/${rep ?? ''}`);
-              } else {
-                ui.snackbar.show('not support this page', 'crimson');
-              }
-            },
-          ],
-          [
-            /github.com\/.+\/.+$/,
-            'Stargazers',
-            () => window.open(`${location.href}/stargazers`),
-          ],
-          [
-            'zhihu.com',
-            'Clear Inbox',
-            async () => {
-              const { data } = await fetch('/api/v4/inbox').then((e) =>
-                e.json(),
-              );
-              await Promise.allSettled(
-                data.map(({ participant: { id } }) =>
-                  fetch(`https://www.zhihu.com/api/v4/chat?sender_id=${id}`, {
-                    method: 'delete',
-                  }).then((e) => e.json()),
-                ),
-              );
-            },
-          ],
-          [
-            'chatgpt.com',
-            'Clear Conversation',
-            async () => {
-              const token = prompt('token');
-              await Promise.all(
-                $$('nav li a').map(({ el }) => {
-                  const id = el.href.match(/[^\/]+$/)?.[0];
-                  return fetch(`/backend-api/conversation/${id}`, {
-                    method: 'PATCH',
-                    credentials: 'include',
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                      'Content-Type': 'application/json',
-                      'Oai-Device-Id': (
-                        localStorage.getItem('oai-did') ?? ''
-                      ).replaceAll('"', ''),
-                      'Oai-Language': 'en-US',
-                    },
-                    body: JSON.stringify({ is_visible: false }),
-                  });
-                }),
-              );
-              log('clear conversation success');
-            },
-          ],
-          [
-            'microsoft.com',
-            'Clear Conversation',
-            () => {
-              window.open(
-                'https://account.microsoft.com/privacy/copilot',
-                '_blank',
-              );
-            },
-          ],
-          [
-            'kimi.moonshot.cn',
-            'Clear Conversation',
-            async () => {
-              const { promise, resolve } = Promise.withResolvers();
-              /** @type {MutationObserver} */
-              let ob;
-              $(document.body).observe(
-                (_ob) => {
-                  $('.MuiDialogActions-root button:last-child')?.el.click();
-                  ob = _ob;
-                },
-                { childList: true },
-              );
-              const timer = setInterval(() => {
-                const btns = $$('div[class*=contentBox] div[class*=delBtn]');
-                if (!btns.length) resolve(0);
-                (function addTask() {
-                  const btn = btns.pop();
-                  btn &&
-                    setTimeout(
-                      () => {
-                        btn.el.click();
-                        addTask();
-                      },
-                      Math.random() * 5e2 + 5e2,
-                    );
-                })();
-              }, 1e3);
-              promise.then(() => {
-                ob.disconnect();
-                clearInterval(timer);
-                log('clear conversation success');
-              });
-            },
-          ],
-        ];
-        tm.matchURL(
-          //@ts-ignore
-          ...confgis.map((e) =>
-            e.length === 3
-              ? [e[0], () => pageBtns.push({ text: e[1], onclick: e[2] })]
-              : e,
-          ),
-        );
-        /** @type {Btns} */
-        const commonBtns = [
+        /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>[]} */
+        tm['FnBtns'] = [
           {
             text: 'Design Mode',
+            style: { background: 'seagreen' },
             onclick() {
               _.toggle(document, 'designMode', ['on', 'off']);
               _.toggle(this.style, 'opacity', ['0.5', '1']);
             },
           },
-        ].map((e) => {
-          Object.assign((e.style ??= {}), { background: 'seagreen' });
-          return e;
-        });
-        return () => ui.dialog.show('', '', commonBtns.concat(pageBtns));
+        ];
+        return () => ui.dialog.show('', '', tm['FnBtns']);
       })(),
     ],
   ];
@@ -260,6 +130,7 @@
   );
 })();
 
+/** Remove ADs */
 (function () {
   'use strict';
   if (self != top) return;
@@ -299,6 +170,7 @@
   ]);
 })();
 
+/** Auto skip */
 (function () {
   'use strict';
   /**
@@ -331,10 +203,190 @@
   }
 })();
 
+/** Clear AI history */
+(function () {
+  'use strict';
+  const { $, $$, log, comm, matchURL, ui, _ } = tm;
+  const clearSignal = 'tm:clearAIHistory';
+  /** @type {Record<string, () => Promise<unknown>>} */
+  const urlTaskMap = {
+    async 'https://account.microsoft.com/privacy/copilot'() {
+      const { ok } = await fetch(
+        '/privacy/api/copilot-activity/clear-all/bing-consumer',
+        {
+          method: 'DELETE',
+          headers: {
+            __requestverificationtoken:
+              $('input[name=__RequestVerificationToken]')?.el.value ?? '',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        },
+      );
+      if (!ok) return Promise.reject();
+    },
+    async 'https://chatgpt.com'() {
+      const authorization =
+        'Bearer ' +
+        window['__reactRouterContext'].state.loaderData.root['rq:["session"]']
+          .data.accessToken;
+      const { items } = await (
+        await fetch('/backend-api/conversations?offset=0&limit=100', {
+          method: 'GET',
+          headers: { authorization },
+        })
+      ).json();
+      await Promise.all(
+        items.map(async ({ id }) =>
+          (
+            await fetch(`/backend-api/conversation/${id}`, {
+              method: 'PATCH',
+              headers: { authorization, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ is_visible: false }),
+            })
+          ).json(),
+        ),
+      );
+    },
+    async 'https://chat.deepseek.com'() {
+      const authorization =
+        'Bearer ' + JSON.parse(localStorage.getItem('userToken') ?? '').value;
+      const {
+        data: {
+          biz_data: { chat_sessions },
+        },
+      } = await (
+        await fetch('/api/v0/chat_session/fetch_page?count=100', {
+          method: 'GET',
+          headers: { authorization },
+        })
+      ).json();
+      await Promise.all(
+        chat_sessions.map(
+          async ({ id }) =>
+            await (
+              await fetch('/api/v0/chat_session/delete', {
+                method: 'POST',
+                headers: { authorization, 'content-type': 'application/json' },
+                body: JSON.stringify({ chat_session_id: id }),
+              })
+            ).json(),
+        ),
+      );
+    },
+    async 'https://kimi.moonshot.cn'() {
+      const authorization = 'Bearer ' + localStorage.getItem('access_token');
+      const { items } = await (
+        await fetch('/api/chat/list', {
+          method: 'post',
+          headers: { authorization, 'content-type': 'application/json' },
+          body: JSON.stringify({ offset: 0, size: 1e4 }),
+        })
+      ).json();
+      await Promise.all(
+        items.map(async ({ id }) =>
+          (
+            await fetch(`/api/chat/${id}`, {
+              method: 'delete',
+              headers: { authorization },
+            })
+          ).json(),
+        ),
+      );
+    },
+    async 'https://chatglm.cn'() {
+      const authorization =
+        'Bearer ' + (await window['cookieStore'].get('chatglm_token')).value;
+      const {
+        result: { results },
+      } = await (
+        await fetch('/chatglm/backend-api/assistant/search_log_history', {
+          method: 'POST',
+          headers: { authorization, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            get_all_history: true,
+            page_num: 1,
+            page_size: 1e4,
+          }),
+        })
+      ).json();
+      await Promise.all(
+        results.map(
+          async ({ assistant_id, conversation_id }) =>
+            await (
+              await fetch(
+                '/chatglm/backend-api/assistant/conversation/delete',
+                {
+                  method: 'POST',
+                  headers: {
+                    authorization,
+                    'content-type': 'application/json',
+                  },
+                  body: JSON.stringify({ assistant_id, conversation_id }),
+                },
+              )
+            ).json(),
+        ),
+      );
+    },
+    async 'https://metaso.cn'() {
+      const token = '';
+      const {
+        data: { content },
+      } = await (
+        await fetch('/api/search-history?pageIndex=0&pageSize=100')
+      ).json();
+      await Promise.all(
+        content.map(
+          async ({ id }) =>
+            await (
+              await fetch(`/api/session/${id}`, { method: 'DELETE' })
+            ).json(),
+        ),
+      );
+    },
+  };
+  tm['FnBtns'].push({
+    text: 'Clear AI History',
+    style: { background: 'cadetblue' },
+    onclick() {
+      setTimeout(() =>
+        ui.dialog.show(
+          'Choose one',
+          '',
+          _.map(urlTaskMap, (task, url) => ({
+            text: new URL(url).hostname.split('.').at(-2) ?? '',
+            ...(document.URL.includes(url)
+              ? { onclick: task, style: { background: 'steelblue' } }
+              : { onclick: () => comm.send(url, { x: clearSignal }) }),
+          })),
+        ),
+      );
+    },
+  });
+  matchURL(
+    ..._.map(
+      urlTaskMap,
+      (task, url) =>
+        /** @type {[String, () => void]} */ ([
+          url,
+          async () => {
+            if ((await comm.receive()).x !== clearSignal) return;
+            log('clear AI history start');
+            task().then(
+              (e) => log.info('clear AI history success', e),
+              (e) => log.error('clear AI history failed', e),
+            );
+          },
+        ]),
+    ),
+  );
+})();
+
+/** Different site task */
 (function () {
   'use strict';
   if (self != top) return;
-  const { $, $$, hack, log, _ } = tm;
+  const { $, $$, ui, log, _ } = tm;
 
   document.documentElement.style.fontSize = '16px';
   tm.matchURL(
@@ -392,6 +444,25 @@
             },
             { childList: true },
           );
+        });
+      },
+    ],
+
+    [
+      'zhihu.com',
+      () => {
+        tm['FnBtns'].push({
+          text: 'Clear Inbox',
+          onclick: async () => {
+            const { data } = await fetch('/api/v4/inbox').then((e) => e.json());
+            await Promise.allSettled(
+              data.map(({ participant: { id } }) =>
+                fetch(`https://www.zhihu.com/api/v4/chat?sender_id=${id}`, {
+                  method: 'delete',
+                }).then((e) => e.json()),
+              ),
+            );
+          },
         });
       },
     ],
@@ -464,6 +535,38 @@
             ob.disconnect();
           },
           { childList: true, subtree: true },
+        );
+      },
+    ],
+    [
+      /github.(com|io)/,
+      () => {
+        const url = new URL(location.href);
+        function repo2page() {
+          if (url.host !== 'github.com') return;
+          const [_, usr, rep] = url.pathname.split('/');
+          return `https://${usr}.github.io/${rep ?? ''}`;
+        }
+        function page2repo() {
+          if (!url.host.endsWith('.github.io')) return;
+          const usr = url.host.replace('.github.io', '');
+          const [_, rep] = url.pathname.split('/');
+          return `https://github.com/${usr}/${rep ?? ''}`;
+        }
+        tm['FnBtns'].push(
+          {
+            text: 'Repo <-> Page',
+            onclick() {
+              repo2page() && window.open(repo2page());
+              page2repo() && window.open(page2repo());
+            },
+          },
+          {
+            text: 'Stargazers',
+            onclick() {
+              window.open(`${page2repo() ?? location.href}/stargazers`);
+            },
+          },
         );
       },
     ],
