@@ -1,0 +1,25 @@
+{
+  "type": "module",
+  "scripts": {
+    "format": "prettier --write 'src/**/*' 'types/**/*' 'scripts/**/*'",
+    "type-check": "tsc --noEmit",
+    "build": "bun scripts/install.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/wicg-file-system-access": "^2023.10.7",
+    "csstype": "^3.2.3",
+    "prettier": "^3.8.1",
+    "prettier-plugin-jsdoc": "^1.8.0",
+    "typed-query-selector": "^2.12.0"
+  },
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-jsdoc"
+    ],
+    "jsdocTagsOrder": "{\"template\": 24.5}",
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "all"
+  }
+}
