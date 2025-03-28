@@ -207,6 +207,7 @@ tm['deleteADs']();
       /** 设置 Recorder */
       function setRecorder() {
         if (recorder) return;
+        /** @type {HTMLVideoElement} */
         const el = player.mediaElement();
         if (el.tagName !== 'VIDEO') {
           log(`${el.tagName} 不支持录制`);
@@ -230,28 +231,24 @@ tm['deleteADs']();
           );
         };
       }
-      setRecorder();
-      tm.onRouteChange(setRecorder);
-      /** @type {Record<RecordingState, (recorder: MediaRecorder) => void>} */
-      const stateConfig = {
-        inactive(recorder) {
-          recorder.start();
-        },
-        recording(recorder) {
-          recorder.pause();
-        },
-        paused(recorder) {
-          recorder.resume();
-        },
+      /** @satisfies {Record<RecordingState, keyof MediaRecorder>} */
+      const fnMap = {
+        inactive: 'start',
+        recording: 'pause',
+        paused: 'resume',
       };
       return {
         text: '录制',
         onclick(e) {
-          if (!recorder) return;
-          stateConfig[recorder.state](recorder);
-          e.ctrlKey && recorder.stop();
-          //@ts-ignore
-          this.textContent = recorder.state;
+          if (!recorder) {
+            setRecorder();
+            tm.onRouteChange(setRecorder);
+          }
+          if (recorder) {
+            recorder[fnMap[recorder.state]]();
+            e.ctrlKey && recorder.stop();
+            this.textContent = recorder.state;
+          }
         },
         oncontextmenu() {},
       };

@@ -16,7 +16,7 @@
   /** @type {[(e: KeyboardEvent) => boolean, () => void][]} */
   const listeners = [
     [
-      (e) => e.shiftKey && e.code === 'KeyC',
+      (e) => e.ctrlKey && e.code === 'KeyC',
       function copyText() {
         if (!navigator.clipboard) _.exit('not support navigator.clipboard');
         const text = getSelection()?.toString();
@@ -28,82 +28,7 @@
       },
     ],
     [
-      (e) => e.altKey && e.code === 'KeyQ',
-      (function advancedNav() {
-        const cfg = {
-          google: 'https://www.google.com/search?q=',
-          'google.scholar': 'https://scholar.google.com/scholar?q=',
-          bing: 'https://www.bing.com/search?cc=us&q=',
-          duck: 'https://duckduckgo.com/?q=',
-          mdn: 'https://developer.mozilla.org/zh.CN/search?q=',
-          github: 'https://github.com/search?q=',
-          'github.user': 'https://github.com/',
-          npm: 'https://www.npmjs.com/search?q=',
-          'npm.pkg': 'https://www.npmjs.com/package/',
-          bili: 'https://search.bilibili.com/all?keyword=',
-          'bili.video': 'https://www.bilibili.com/video/',
-          'bili.user': 'https://space.bilibili.com/',
-          mfuns: 'https://www.mfuns.net/search?q=',
-          youtube: 'https://www.youtube.com/results?search_query=',
-          x: 'https://x.com/search?q=',
-          stackoverflow: 'https://stackoverflow.com/search?q=',
-          zhihu: 'https://www.zhihu.com/search?q=',
-          zhipin: 'https://www.zhipin.com/web/geek/job?query=',
-          steamdb: 'https://steamdb.info/search/?q=',
-          greasyfork: 'https://greasyfork.org/zh-CN/scripts?q=',
-          amap: 'https://ditu.amap.com/search?query=',
-          scihub: 'https://sci-hub.st/',
-          email: 'mailto:',
-          wiki: 'https://wikipedia.org/w/index.php?search=',
-          xiaohongshu: 'https://www.xiaohongshu.com/search_result?keyword=',
-          pypi: 'https://pypi.org/search/?q=',
-          'pypi.pkg': 'https://pypi.org/project/',
-        };
-        const dom = ui.dialog.dom;
-        function goto() {
-          const el = dom.$('s-picker-item[selected]')?.el;
-          if (!el) return;
-          el.attributes.removeNamedItem('selected');
-          const alias = el.textContent;
-          const content = dom.$('textarea')?.el.value;
-          _.hasOwnKey(cfg, alias ?? '')
-            ? window.open(cfg[alias] + content, '_blank')
-            : ui.snackbar.show(`not support ${alias}`, 'crimson');
-        }
-        const comp = () => lit.html`
-      <div style="${$.style({
-        margin: '15px 20px',
-        'font-family': 'Consolas',
-      })}"
-        @keydown=${(e) => {
-          e.stopImmediatePropagation();
-          if (e.key === 'Enter' && e.target.tagName === 'TEXTAREA') {
-            dom.$('s-picker')?.el.toggle();
-          } else if (e.key === 'ArrowUp') {
-          }
-        }}>
-        <s-text-field label="Content">
-          <textarea tabindex="0" autofocus></textarea>
-        </s-text-field>
-        <s-picker label="Alias" style="color: #0096d2" @change=${goto}>
-          ${_.map(
-            cfg,
-            (v, k) =>
-              lit.html`<s-picker-item .textContent=${k} style="${$.style({
-                height: 'auto',
-                'justify-content': 'flex-start',
-              })}"></s-picker-item>`,
-          )}
-        </s-picker>
-      </div>`;
-        return () => {
-          ui.dialog.show('Nav', comp());
-          dom.$('textarea')?.el.setSelectionRange(-1, -1);
-        };
-      })(),
-    ],
-    [
-      (e) => e.altKey && e.code === 'KeyS',
+      (e) => e.shiftKey && e.key === 'Tab',
       (function FnPanel() {
         /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>[]} */
         tm['FnBtns'] = [
@@ -388,7 +313,6 @@
   if (self != top) return;
   const { $, $$, ui, log, _ } = tm;
 
-  document.documentElement.style.fontSize = '16px';
   tm.matchURL(
     [
       'bing.com',
