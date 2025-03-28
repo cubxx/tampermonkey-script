@@ -16,7 +16,7 @@
   /** @type {[(e: KeyboardEvent) => boolean, () => void][]} */
   const listeners = [
     [
-      (e) => e.shiftKey && e.code === 'KeyC',
+      (e) => e.ctrlKey && e.code === 'KeyC',
       function copyText() {
         if (!navigator.clipboard) _.exit('not support navigator.clipboard');
         const text = getSelection()?.toString();
@@ -28,7 +28,7 @@
       },
     ],
     [
-      (e) => e.altKey && e.code === 'KeyQ',
+      (e) => e.shiftKey && e.code === 'KeyQ',
       (function advancedNav() {
         const cfg = {
           google: 'https://www.google.com/search?q=',
@@ -103,7 +103,7 @@
       })(),
     ],
     [
-      (e) => e.altKey && e.code === 'KeyS',
+      (e) => e.shiftKey && e.code === 'KeyS',
       (function FnPanel() {
         /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>[]} */
         tm['FnBtns'] = [
