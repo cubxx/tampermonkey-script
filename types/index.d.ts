@@ -11,7 +11,7 @@ declare global {
   /** 需要转换的 Props */
   type ConvertProps = {
     class: string | string[];
-    style: string | CSSProperties;
+    style: string | CSSProperties | Record<string, string>;
   };
   /** Props 配置 */
   type Props<K extends keyof HTMLElementTagNameMap = 'var'> = Merge<

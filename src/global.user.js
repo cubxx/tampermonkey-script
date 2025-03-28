@@ -16,7 +16,7 @@
   /** @type {[(e: KeyboardEvent) => boolean, () => void][]} */
   const listeners = [
     [
-      (e) => e.shiftKey && e.code === 'KeyC',
+      (e) => e.ctrlKey && e.code === 'KeyC',
       function copyText() {
         if (!navigator.clipboard) _.exit('not support navigator.clipboard');
         const text = getSelection()?.toString();
@@ -28,82 +28,7 @@
       },
     ],
     [
-      (e) => e.altKey && e.code === 'KeyQ',
-      (function advancedNav() {
-        const cfg = {
-          google: 'https://www.google.com/search?q=',
-          'google.scholar': 'https://scholar.google.com/scholar?q=',
-          bing: 'https://www.bing.com/search?cc=us&q=',
-          duck: 'https://duckduckgo.com/?q=',
-          mdn: 'https://developer.mozilla.org/zh.CN/search?q=',
-          github: 'https://github.com/search?q=',
-          'github.user': 'https://github.com/',
-          npm: 'https://www.npmjs.com/search?q=',
-          'npm.pkg': 'https://www.npmjs.com/package/',
-          bili: 'https://search.bilibili.com/all?keyword=',
-          'bili.video': 'https://www.bilibili.com/video/',
-          'bili.user': 'https://space.bilibili.com/',
-          mfuns: 'https://www.mfuns.net/search?q=',
-          youtube: 'https://www.youtube.com/results?search_query=',
-          x: 'https://x.com/search?q=',
-          stackoverflow: 'https://stackoverflow.com/search?q=',
-          zhihu: 'https://www.zhihu.com/search?q=',
-          zhipin: 'https://www.zhipin.com/web/geek/job?query=',
-          steamdb: 'https://steamdb.info/search/?q=',
-          greasyfork: 'https://greasyfork.org/zh-CN/scripts?q=',
-          amap: 'https://ditu.amap.com/search?query=',
-          scihub: 'https://sci-hub.st/',
-          email: 'mailto:',
-          wiki: 'https://wikipedia.org/w/index.php?search=',
-          xiaohongshu: 'https://www.xiaohongshu.com/search_result?keyword=',
-          pypi: 'https://pypi.org/search/?q=',
-          'pypi.pkg': 'https://pypi.org/project/',
-        };
-        const dom = ui.dialog.dom;
-        function goto() {
-          const el = dom.$('s-picker-item[selected]')?.el;
-          if (!el) return;
-          el.attributes.removeNamedItem('selected');
-          const alias = el.textContent;
-          const content = dom.$('textarea')?.el.value;
-          _.hasOwnKey(cfg, alias ?? '')
-            ? window.open(cfg[alias] + content, '_blank')
-            : ui.snackbar.show(`not support ${alias}`, 'crimson');
-        }
-        const comp = () => lit.html`
-      <div style="${$.style({
-        margin: '15px 20px',
-        'font-family': 'Consolas',
-      })}"
-        @keydown=${(e) => {
-          e.stopImmediatePropagation();
-          if (e.key === 'Enter' && e.target.tagName === 'TEXTAREA') {
-            dom.$('s-picker')?.el.toggle();
-          } else if (e.key === 'ArrowUp') {
-          }
-        }}>
-        <s-text-field label="Content">
-          <textarea tabindex="0" autofocus></textarea>
-        </s-text-field>
-        <s-picker label="Alias" style="color: #0096d2" @change=${goto}>
-          ${_.map(
-            cfg,
-            (v, k) =>
-              lit.html`<s-picker-item .textContent=${k} style="${$.style({
-                height: 'auto',
-                'justify-content': 'flex-start',
-              })}"></s-picker-item>`,
-          )}
-        </s-picker>
-      </div>`;
-        return () => {
-          ui.dialog.show('Nav', comp());
-          dom.$('textarea')?.el.setSelectionRange(-1, -1);
-        };
-      })(),
-    ],
-    [
-      (e) => e.altKey && e.code === 'KeyS',
+      (e) => e.ctrlKey && e.key === '`',
       (function FnPanel() {
         /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>[]} */
         tm['FnBtns'] = [
@@ -210,28 +135,41 @@
   const clearSignal = 'tm:clearAIHistory';
   /** @type {Record<string, () => Promise<unknown>>} */
   const urlTaskMap = {
-    async 'https://account.microsoft.com/privacy/copilot'() {
-      const { ok } = await fetch(
-        '/privacy/api/copilot-activity/clear-all/bing-consumer',
-        {
-          method: 'DELETE',
-          headers: {
-            __requestverificationtoken:
-              $('input[name=__RequestVerificationToken]')?.el.value ?? '',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-        },
+    async 'https://copilot.microsoft.com'() {
+      const msal_key = Object.keys(localStorage).find((k) =>
+        k.startsWith('msal.token.keys'),
       );
-      if (!ok) return Promise.reject();
+      if (!msal_key) return console.error('msal_key not found');
+      const msal_value = localStorage.getItem(msal_key);
+      if (!msal_value) return console.error('msal_value not found');
+      const token_key = JSON.parse(msal_value).accessToken.find((key) =>
+        key.includes('readwrite'),
+      );
+      if (!token_key) return console.error('token_key not found');
+      const token_value = localStorage.getItem(token_key);
+      if (!token_value) return console.error('token_value not found');
+      const authorization = 'Bearer ' + JSON.parse(token_value).secret;
+      const { results } = await (
+        await fetch('/c/api/conversations', { headers: { authorization } })
+      ).json();
+      await Promise.all(
+        results.map(async ({ id }) =>
+          (
+            await fetch('/c/api/conversations/' + id, {
+              method: 'DELETE',
+              headers: { authorization },
+            })
+          ).json(),
+        ),
+      );
     },
     async 'https://chatgpt.com'() {
       const authorization =
         'Bearer ' +
-        window['__reactRouterContext'].state.loaderData.root['rq:["session"]']
-          .data.accessToken;
+        window['__reactRouterContext'].state.loaderData.root.clientBootstrap
+          .session.accessToken;
       const { items } = await (
         await fetch('/backend-api/conversations?offset=0&limit=100', {
-          method: 'GET',
           headers: { authorization },
         })
       ).json();
@@ -273,7 +211,7 @@
         ),
       );
     },
-    async 'https://kimi.moonshot.cn'() {
+    async 'https://www.kimi.com'() {
       const authorization = 'Bearer ' + localStorage.getItem('access_token');
       const { items } = await (
         await fetch('/api/chat/list', {
@@ -294,8 +232,11 @@
       );
     },
     async 'https://chatglm.cn'() {
-      const authorization =
-        'Bearer ' + (await window['cookieStore'].get('chatglm_token')).value;
+      const token = document.cookie.match(
+        new RegExp('(^|;\\s*)(chatglm_token)=([^;]*)'),
+      )?.[3];
+      if (!token) return console.error('token not found');
+      const authorization = 'Bearer ' + decodeURIComponent(token);
       const {
         result: { results },
       } = await (
@@ -329,6 +270,7 @@
       );
     },
     async 'https://metaso.cn'() {
+      localStorage.removeItem('data-store');
       const token = '';
       const {
         data: { content },
@@ -341,6 +283,20 @@
             await (
               await fetch(`/api/session/${id}`, { method: 'DELETE' })
             ).json(),
+        ),
+      );
+    },
+    async 'https://grok.com'() {
+      const { conversations } = await (
+        await fetch('/rest/app-chat/conversations?pageSize=100')
+      ).json();
+      return Promise.all(
+        conversations.map(async ({ conversationId: id }) =>
+          (
+            await fetch('/rest/app-chat/conversations/soft/' + id, {
+              method: 'DELETE',
+            })
+          ).json(),
         ),
       );
     },
@@ -388,7 +344,6 @@
   if (self != top) return;
   const { $, $$, ui, log, _ } = tm;
 
-  document.documentElement.style.fontSize = '16px';
   tm.matchURL(
     [
       'bing.com',
@@ -568,6 +523,12 @@
             },
           },
         );
+      },
+    ],
+    [
+      /pptr.dev/,
+      () => {
+        document.body.style.setProperty('--doc-sidebar-width', '15rem');
       },
     ],
   );
