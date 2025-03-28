@@ -388,7 +388,6 @@
   if (self != top) return;
   const { $, $$, ui, log, _ } = tm;
 
-  document.documentElement.style.fontSize = '16px';
   tm.matchURL(
     [
       'bing.com',
