@@ -1,7 +1,3 @@
 {
-    "recommendations": [
-        "esbenp.prettier-vscode",
-        "andywang.vscode-scriptmonkey",
-        "runem.lit-plugin"
-    ]
+  "recommendations": ["esbenp.prettier-vscode", "runem.lit-plugin"]
 }
