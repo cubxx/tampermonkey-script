@@ -135,28 +135,41 @@
   const clearSignal = 'tm:clearAIHistory';
   /** @type {Record<string, () => Promise<unknown>>} */
   const urlTaskMap = {
-    async 'https://account.microsoft.com/privacy/copilot'() {
-      const { ok } = await fetch(
-        '/privacy/api/copilot-activity/clear-all/bing-consumer',
-        {
-          method: 'DELETE',
-          headers: {
-            __requestverificationtoken:
-              $('input[name=__RequestVerificationToken]')?.el.value ?? '',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-        },
+    async 'https://copilot.microsoft.com'() {
+      const msal_key = Object.keys(localStorage).find((k) =>
+        k.startsWith('msal.token.keys'),
       );
-      if (!ok) return Promise.reject();
+      if (!msal_key) return console.error('msal_key not found');
+      const msal_value = localStorage.getItem(msal_key);
+      if (!msal_value) return console.error('msal_value not found');
+      const token_key = JSON.parse(msal_value).accessToken.find((key) =>
+        key.includes('readwrite'),
+      );
+      if (!token_key) return console.error('token_key not found');
+      const token_value = localStorage.getItem(token_key);
+      if (!token_value) return console.error('token_value not found');
+      const authorization = 'Bearer ' + JSON.parse(token_value).secret;
+      const { results } = await (
+        await fetch('/c/api/conversations', { headers: { authorization } })
+      ).json();
+      await Promise.all(
+        results.map(async ({ id }) =>
+          (
+            await fetch('/c/api/conversations/' + id, {
+              method: 'DELETE',
+              headers: { authorization },
+            })
+          ).json(),
+        ),
+      );
     },
     async 'https://chatgpt.com'() {
       const authorization =
         'Bearer ' +
-        window['__reactRouterContext'].state.loaderData.root['rq:["session"]']
-          .data.accessToken;
+        window['__reactRouterContext'].state.loaderData.root.clientBootstrap
+          .session.accessToken;
       const { items } = await (
         await fetch('/backend-api/conversations?offset=0&limit=100', {
-          method: 'GET',
           headers: { authorization },
         })
       ).json();
@@ -219,8 +232,11 @@
       );
     },
     async 'https://chatglm.cn'() {
-      const authorization =
-        'Bearer ' + (await window['cookieStore'].get('chatglm_token')).value;
+      const token = document.cookie.match(
+        new RegExp('(^|;\\s*)(chatglm_token)=([^;]*)'),
+      )?.[3];
+      if (!token) return console.error('token not found');
+      const authorization = 'Bearer ' + decodeURIComponent(token);
       const {
         result: { results },
       } = await (
@@ -492,6 +508,12 @@
             },
           },
         );
+      },
+    ],
+    [
+      /pptr.dev/,
+      () => {
+        document.body.style.setProperty('--doc-sidebar-width', '15rem');
       },
     ],
   );
