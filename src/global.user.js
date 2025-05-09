@@ -285,6 +285,20 @@
         ),
       );
     },
+    async 'https://grok.com'() {
+      const { conversations } = await (
+        await fetch('/rest/app-chat/conversations?pageSize=100')
+      ).json();
+      return Promise.all(
+        conversations.map(async ({ conversationId: id }) =>
+          (
+            await fetch('/rest/app-chat/conversations/soft/' + id, {
+              method: 'DELETE',
+            })
+          ).json(),
+        ),
+      );
+    },
   };
   tm['FnBtns'].push({
     text: 'Clear AI History',
