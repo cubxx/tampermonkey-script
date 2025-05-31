@@ -211,7 +211,7 @@
         ),
       );
     },
-    async 'https://kimi.moonshot.cn'() {
+    async 'https://www.kimi.com'() {
       const authorization = 'Bearer ' + localStorage.getItem('access_token');
       const { items } = await (
         await fetch('/api/chat/list', {

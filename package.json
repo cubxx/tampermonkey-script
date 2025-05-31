@@ -3,7 +3,7 @@
   "scripts": {
     "format": "prettier --write 'src/**/*' 'types/**/*' 'scripts/**/*'",
     "type-check": "tsc --noEmit",
-    "install": "bun scripts/install.js"
+    "build": "bun scripts/install.js"
   },
   "devDependencies": {
     "@types/bun": "^1.1.17",
