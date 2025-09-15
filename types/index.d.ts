@@ -1,13 +1,13 @@
-import * as csstype from 'csstype';
-import * as litHtml from 'lit-html';
-import {
-  ParseSelector,
-  StrictlyParseSelector,
-} from 'typed-query-selector/parser';
+import { PropertiesHyphen } from 'csstype';
+import { StrictlyParseSelector } from 'typed-query-selector/parser';
+import _van from './van-1.5.5.min';
+import * as _vanx from './van-x-0.6.3';
 
 declare global {
-  type HTMLTemplateResult = litHtml.HTMLTemplateResult;
-  type CSSProperties = csstype.PropertiesHyphen;
+  const van: typeof _van;
+  const vanX: typeof _vanx;
+
+  type CSSProperties = PropertiesHyphen;
   /** 需要转换的 Props */
   type ConvertProps = {
     class: string | string[];

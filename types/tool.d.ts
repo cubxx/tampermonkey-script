@@ -34,9 +34,12 @@ type Serializable =
   | undefined
   | Serializable[]
   | { [key: string]: Serializable };
+
 type Effect = () => void;
 type SignalNode<T> = { value: T; subscribers: Set<Effect> };
 type Signal<T> = [() => T, (v: T) => void];
 type ComponentOptions<P extends string> = Partial<
   { props: P[] } & Record<'onMounted' | 'onUnmounted', Effect[]>
 >;
+
+type LooseObject = Record<string, any>;

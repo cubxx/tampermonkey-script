@@ -3,8 +3,8 @@
 // @version     0.2
 // @author      cubxx
 // @match       *://*/*
-// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
+// @updateURL   /src/global.user.js
+// @downloadURL /src/global.user.js
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%230bf" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
 // ==/UserScript==
@@ -22,26 +22,30 @@
         const text = getSelection()?.toString();
         if (!text) return;
         navigator.clipboard.writeText(text).then(
-          () => ui.snackbar.show('copy success', 'seagreen'),
-          (err) => ui.snackbar.show('copy failed', 'crimson'),
+          () => ui.snackbar({ text: 'copy success', color: 'seagreen' }),
+          (err) => ui.snackbar({ text: 'copy failed', color: 'crimson' }),
         );
       },
     ],
     [
       (e) => e.ctrlKey && e.key === '`',
       (function FnPanel() {
-        /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>[]} */
+        /** @type {NonNullable<Parameters<typeof ui.dialog>[0]>[]} */
         tm['FnBtns'] = [
           {
             text: 'Design Mode',
-            style: { background: 'seagreen' },
+            color: 'seagreen',
             onclick() {
               _.toggle(document, 'designMode', ['on', 'off']);
               _.toggle(this.style, 'opacity', ['0.5', '1']);
             },
           },
         ];
-        return () => ui.dialog.show('', '', tm['FnBtns']);
+        tm['FnBtns'] = ui.dialog({
+          open: false,
+          buttons: tm['FnBtns'],
+        }).props.buttons;
+        return () => ui.dialog({ title: '', content: '' });
       })(),
     ],
   ];
@@ -49,7 +53,7 @@
     'keydown',
     (e) => {
       for (const [is, fn] of listeners)
-        if (is(e)) return e.stopImmediatePropagation(), fn();
+        if (is(e)) return (e.stopImmediatePropagation(), fn());
     },
     true,
   );
@@ -93,7 +97,7 @@
     'iframe[src*="app.moegirl"]',
     'iframe[src*="ads.nicovideo.jp"]',
   ]);
-})();
+});
 
 /** Auto skip */
 (function () {
@@ -135,34 +139,6 @@
   const clearSignal = 'tm:clearAIHistory';
   /** @type {Record<string, () => Promise<unknown>>} */
   const urlTaskMap = {
-    async 'https://copilot.microsoft.com'() {
-      const msal_key = Object.keys(localStorage).find((k) =>
-        k.startsWith('msal.token.keys'),
-      );
-      if (!msal_key) return console.error('msal_key not found');
-      const msal_value = localStorage.getItem(msal_key);
-      if (!msal_value) return console.error('msal_value not found');
-      const token_key = JSON.parse(msal_value).accessToken.find((key) =>
-        key.includes('readwrite'),
-      );
-      if (!token_key) return console.error('token_key not found');
-      const token_value = localStorage.getItem(token_key);
-      if (!token_value) return console.error('token_value not found');
-      const authorization = 'Bearer ' + JSON.parse(token_value).secret;
-      const { results } = await (
-        await fetch('/c/api/conversations', { headers: { authorization } })
-      ).json();
-      await Promise.all(
-        results.map(async ({ id }) =>
-          (
-            await fetch('/c/api/conversations/' + id, {
-              method: 'DELETE',
-              headers: { authorization },
-            })
-          ).json(),
-        ),
-      );
-    },
     async 'https://chatgpt.com'() {
       const authorization =
         'Bearer ' +
@@ -301,24 +277,28 @@
       );
     },
   };
-  tm['FnBtns'].push({
-    text: 'Clear AI History',
-    style: { background: 'cadetblue' },
-    onclick() {
-      setTimeout(() =>
-        ui.dialog.show(
-          'Choose one',
-          '',
-          _.map(urlTaskMap, (task, url) => ({
-            text: new URL(url).hostname.split('.').at(-2) ?? '',
-            ...(document.URL.includes(url)
-              ? { onclick: task, style: { background: 'steelblue' } }
-              : { onclick: () => comm.send(url, { x: clearSignal }) }),
-          })),
-        ),
-      );
+  const newBtns = _.map(urlTaskMap, (task, url) => ({
+    text: new URL(url).hostname.split('.').at(-2) ?? '',
+    hidden: true,
+    ...(location.href.includes(url)
+      ? { onclick: task, color: 'steelblue' }
+      : { onclick: () => comm.send(url, { x: clearSignal }) }),
+  }));
+
+  tm['FnBtns'].push(
+    {
+      text: 'Clear AI History',
+      color: 'cadetblue',
+      onclick() {
+        vanX.replace(tm['FnBtns'], (l) =>
+          l.map((v) => ({ ...v, hidden: !v.hidden })),
+        );
+        ui.dialog({});
+      },
     },
-  });
+    ...newBtns,
+  );
+
   matchURL(
     ..._.map(
       urlTaskMap,
@@ -355,21 +335,6 @@
         search.set('cc', 'us');
         search.delete('mkt');
         location.search = search + '';
-      },
-    ],
-    [
-      /developer.mozilla.org\/[\w-]+\/docs/,
-      () => {
-        if (location.href.includes('zh-CN')) return;
-        if (history.length > 2) return;
-        history.pushState(
-          null,
-          '',
-          (location.href = location.href.replace(
-            /\/([\w-]+)\/docs/,
-            '/zh-CN/docs',
-          )),
-        );
       },
     ],
 
@@ -510,7 +475,7 @@
         }
         tm['FnBtns'].push(
           {
-            text: 'Repo <-> Page',
+            text: 'Repo / Page',
             onclick() {
               repo2page() && window.open(repo2page());
               page2repo() && window.open(page2repo());
@@ -529,6 +494,78 @@
       /pptr.dev/,
       () => {
         document.body.style.setProperty('--doc-sidebar-width', '15rem');
+      },
+    ],
+    [
+      'www.duolingo.com',
+      async () => {
+        if (location.pathname.startsWith('/stories')) return;
+        /** @type {{ stories: { id: string; title: string }[] }} */
+        const { stories } = await (
+          await fetch(
+            'https://stories.duolingo.com/api2/practiceHubStories?' +
+              new URLSearchParams({
+                featuredStoryId: 'en-zh-history2-radio-play-0-autogenerated',
+                fromLanguage: 'zh',
+                learningLanguage: 'en',
+              }),
+            {
+              headers: {
+                Authorization: `Bearer ${(await cookieStore.get('jwt_token'))?.value}`,
+              },
+            },
+          )
+        ).json();
+        tm['FnBtns'].push({
+          text: 'story',
+          onclick() {
+            const story = stories[Math.floor(Math.random() * stories.length)];
+            window.open(`/stories/${story.id}?mode=read`, '_blank');
+          },
+        });
+      },
+    ],
+    [
+      'www.youtube.com/watch',
+      () => {
+        $(document.body).observe(
+          (ob) => {
+            const playerEl = $('div#player');
+            if (!playerEl) return _.exit('No player element found');
+            playerEl.observe(
+              (ob) => {
+                // modify video height
+                const dom = $('div#player-container-inner');
+                if (dom) {
+                  dom.el.style.setProperty(
+                    '--ytd-watch-flexy-height-ratio',
+                    '11.7',
+                  );
+                  $('.ytp-cued-thumbnail-overlay-image')?.set({
+                    style: { 'background-size': 'contain' },
+                  });
+                  ob.disconnect();
+                }
+              },
+              { subtree: true, childList: true },
+            );
+
+            // don not close control
+            const moviePlayerEl = $('div#movie_player');
+            if (!moviePlayerEl) return _.exit('No movie player element found');
+            moviePlayerEl.observe(
+              (ob) => {
+                if (moviePlayerEl.el.classList.contains('ytp-autohide')) {
+                  moviePlayerEl.el.classList.remove('ytp-autohide');
+                }
+              },
+              { attributes: true, attributeFilter: ['class'] },
+            );
+
+            ob.disconnect();
+          },
+          { childList: true, subtree: true },
+        );
       },
     ],
   );

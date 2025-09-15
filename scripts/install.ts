@@ -4,8 +4,10 @@ import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 
-function prompt(msg: string) {
-  const result = globalThis.prompt(msg);
+function prompt(msg: string, defaultValue?: string) {
+  const result = globalThis.prompt(
+    ...(defaultValue ? [msg, defaultValue] : [msg]),
+  );
   if (result === null) throw new Error('User cancelled');
   return result;
 }
@@ -30,12 +32,11 @@ function mvMeta(from: string, to: string, port: string) {
       const newLine = line.startsWith('// @updateURL')
         ? ''
         : line.replace(
-            /^\/\/ @((?:downloadURL|require) +)(.+)$/,
+            /^\/\/ @((?:downloadURL|require) +)(\/.+)$/,
             (_, chars, link: string) =>
               '// @' +
               'require'.padEnd(chars.length) +
-              `http://localhost:${port}/` +
-              link.split('/').slice(-2).join('/'),
+              `http://localhost:${port}${link}`,
           );
       if (newLine === '') return;
       const canWrite = writeStream.write(`${newLine}\n`);
@@ -60,21 +61,22 @@ const scripts = (
 const targets = prompt(
   scripts.reduceRight(
     (acc, e, i) => '\n' + (i + 1) + ' ' + e.replace('.user.js', '') + acc,
-    '\nEnter the target file indexes (space-separated):',
+    '\nEnter the target file indexes (comma-separated):',
   ),
 )
-  .split(' ')
+  .split(',')
   .map((e) => scripts[+e - 1]);
 
-const port = prompt('Enter your local server port:');
-const browser = prompt('Enter the browser to use:');
+const port = prompt('Enter your local server port:', '3010');
+const browser = prompt('Enter the browser to use:', 'firefox');
 
 for (const target of targets) {
   const srcPath = path.join(src, target);
   const distPath = path.join(dist, target);
   if (
-    !(await fs.exists(distPath)) ||
-    confirm(`File ${distPath} exists. Overwrite?`)
+    true
+    // !(await fs.exists(distPath)) ||
+    // confirm(`File ${distPath} exists. Overwrite?`)
   ) {
     await mvMeta(srcPath, distPath, port);
   }
