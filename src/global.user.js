@@ -1,10 +1,8 @@
 // ==UserScript==
 // @name        global
-// @version     0.2
+// @version     latest
 // @author      cubxx
 // @match       *://*/*
-// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%230bf" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
 // ==/UserScript==
@@ -16,40 +14,49 @@
   /** @type {[(e: KeyboardEvent) => boolean, () => void][]} */
   const listeners = [
     [
-      (e) => e.ctrlKey && e.code === 'KeyC',
+      (e) => e.ctrlKey && e.key === 'c',
       function copyText() {
-        if (!navigator.clipboard) _.exit('not support navigator.clipboard');
+        if (!navigator.clipboard) _.throw('not support navigator.clipboard');
         const text = getSelection()?.toString();
         if (!text) return;
         navigator.clipboard.writeText(text).then(
-          () => ui.snackbar.show('copy success', 'seagreen'),
-          (err) => ui.snackbar.show('copy failed', 'crimson'),
+          () => log.info('copy success'),
+          (err) => log.error('copy failed', err),
         );
       },
     ],
     [
       (e) => e.ctrlKey && e.key === '`',
       (function FnPanel() {
-        /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>[]} */
-        tm['FnBtns'] = [
-          {
-            text: 'Design Mode',
-            style: { background: 'seagreen' },
-            onclick() {
-              _.toggle(document, 'designMode', ['on', 'off']);
-              _.toggle(this.style, 'opacity', ['0.5', '1']);
+        tm['FnBtns'] =
+          /**
+           * @type {NonNullable<
+           *   Parameters<typeof ui.dialog>[0]['buttons']
+           * >}
+           */
+          ([
+            {
+              text: 'Design Mode',
+              color: 'seagreen',
+              onclick() {
+                _.toggle(document, 'designMode', ['on', 'off']);
+                _.toggle(this.style, 'opacity', ['0.5', '1']);
+              },
             },
-          },
-        ];
-        return () => ui.dialog.show('', '', tm['FnBtns']);
+          ]);
+        const { props } = ui.dialog({ open: false, buttons: tm['FnBtns'] });
+        return () => {
+          vanX.replace(props.buttons, () => tm['FnBtns']);
+          ui.dialog({ title: '', content: '' });
+        };
       })(),
     ],
   ];
-  $(document).on(
+  document.addEventListener(
     'keydown',
     (e) => {
-      for (const [is, fn] of listeners)
-        if (is(e)) return e.stopImmediatePropagation(), fn();
+      for (const [cond, fn] of listeners)
+        if (cond(e)) return (e.stopImmediatePropagation(), fn());
     },
     true,
   );
@@ -59,41 +66,30 @@
 (function () {
   'use strict';
   if (self != top) return;
+  const { _, $$ } = tm;
 
-  tm.rmAD('global', [
-    '.adsbygoogle', //google
-    '.pb-ad', //google
-    '.google-auto-placed', //google
-    '.ap_container', //google
-    '.ad', //google
-    '.b_ad', //bing
-    '.Pc-card', //zhihu-首页
-    '.Pc-Business-Card-PcTopFeedBanner', //zhihu-首页
-    '.Pc-word', //zhihu-问题
-    '.jjjjasdasd', //halihali
-    '.Ads', //nico
-    '.ads', //nico
-    '.baxia-dialog', //amap
-    '.sufei-dialog', //amap
-    '.app-download-panel', //amap
-    '#player-ads', //ytb
-    '#masthead-ad', //ytb
-    'ytd-ad-slot-renderer', //ytb
-    '#google_esf', //google
-    'li[data-layout=ad]', //duck
-    'img[alt=AD]', //acgbox
-    'div[id="1280_adv"]',
-    '.c-ad', //nature
-    '.wwads-container', //vitepress
-    '.VPDocAsideCarbonAds', //vitepress
-    '.carbonads-responsive',
-    '.cpc-ad',
-    '[id^=google_ads]',
-    'iframe[src*="googleads"]',
-    'iframe[src*="app.moegirl"]',
-    'iframe[src*="ads.nicovideo.jp"]',
-  ]);
-})();
+  const rmADs =
+    /** @param {string[]} selectors */
+    (selectors) => {
+      const rm = () => {
+        for (const el of selectors.flatMap((e) => $$(e))) {
+          if (el.style.display !== 'none') {
+            el.style.display = 'none';
+          }
+        }
+      };
+      tm.onRouteChange(rm);
+      document.addEventListener('DOMContentLoaded', rm, { once: true });
+    };
+  tm.router(
+    _.mapValues(
+      {
+        'heroicons.dev': ['#root > aside.sidebar-2 > div'],
+      },
+      (selectors, host) => () => rmADs(selectors),
+    ),
+  );
+});
 
 /** Auto skip */
 (function () {
@@ -131,87 +127,36 @@
 /** Clear AI history */
 (function () {
   'use strict';
-  const { $, $$, log, comm, matchURL, ui, _ } = tm;
-  const clearSignal = 'tm:clearAIHistory';
-  /** @type {Record<string, () => Promise<unknown>>} */
-  const urlTaskMap = {
-    async 'https://copilot.microsoft.com'() {
-      const msal_key = Object.keys(localStorage).find((k) =>
-        k.startsWith('msal.token.keys'),
-      );
-      if (!msal_key) return console.error('msal_key not found');
-      const msal_value = localStorage.getItem(msal_key);
-      if (!msal_value) return console.error('msal_value not found');
-      const token_key = JSON.parse(msal_value).accessToken.find((key) =>
-        key.includes('readwrite'),
-      );
-      if (!token_key) return console.error('token_key not found');
-      const token_value = localStorage.getItem(token_key);
-      if (!token_value) return console.error('token_value not found');
-      const authorization = 'Bearer ' + JSON.parse(token_value).secret;
-      const { results } = await (
-        await fetch('/c/api/conversations', { headers: { authorization } })
-      ).json();
-      await Promise.all(
-        results.map(async ({ id }) =>
-          (
-            await fetch('/c/api/conversations/' + id, {
-              method: 'DELETE',
-              headers: { authorization },
-            })
-          ).json(),
-        ),
-      );
-    },
-    async 'https://chatgpt.com'() {
+  const { $, $$, log, comm, router, ui, _ } = tm;
+
+  /** @satisfies {Record<string, () => Promise<any>>} */
+  const hostTasks = {
+    async 'chatgpt.com'() {
       const authorization =
         'Bearer ' +
         window['__reactRouterContext'].state.loaderData.root.clientBootstrap
           .session.accessToken;
-      const { items } = await (
-        await fetch('/backend-api/conversations?offset=0&limit=100', {
-          headers: { authorization },
+      const { success } = await (
+        await fetch(`/backend-api/conversation`, {
+          method: 'PATCH',
+          headers: { authorization, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_visible: false }),
         })
       ).json();
-      await Promise.all(
-        items.map(async ({ id }) =>
-          (
-            await fetch(`/backend-api/conversation/${id}`, {
-              method: 'PATCH',
-              headers: { authorization, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ is_visible: false }),
-            })
-          ).json(),
-        ),
-      );
+      if (!success) _.throw('request failed');
     },
-    async 'https://chat.deepseek.com'() {
+    async 'chat.deepseek.com'() {
       const authorization =
         'Bearer ' + JSON.parse(localStorage.getItem('userToken') ?? '').value;
-      const {
-        data: {
-          biz_data: { chat_sessions },
-        },
-      } = await (
-        await fetch('/api/v0/chat_session/fetch_page?count=100', {
-          method: 'GET',
-          headers: { authorization },
+      const { code } = await (
+        await fetch('/api/v0/chat_session/delete_all', {
+          method: 'POST',
+          headers: { authorization, 'content-type': 'application/json' },
         })
       ).json();
-      await Promise.all(
-        chat_sessions.map(
-          async ({ id }) =>
-            await (
-              await fetch('/api/v0/chat_session/delete', {
-                method: 'POST',
-                headers: { authorization, 'content-type': 'application/json' },
-                body: JSON.stringify({ chat_session_id: id }),
-              })
-            ).json(),
-        ),
-      );
+      if (code !== 0) _.throw('request failed');
     },
-    async 'https://www.kimi.com'() {
+    async 'www.kimi.com'() {
       const authorization = 'Bearer ' + localStorage.getItem('access_token');
       const { items } = await (
         await fetch('/api/chat/list', {
@@ -231,47 +176,46 @@
         ),
       );
     },
-    async 'https://chatglm.cn'() {
-      const token = document.cookie.match(
-        new RegExp('(^|;\\s*)(chatglm_token)=([^;]*)'),
-      )?.[3];
-      if (!token) return console.error('token not found');
-      const authorization = 'Bearer ' + decodeURIComponent(token);
-      const {
-        result: { results },
-      } = await (
-        await fetch('/chatglm/backend-api/assistant/search_log_history', {
-          method: 'POST',
-          headers: { authorization, 'content-type': 'application/json' },
-          body: JSON.stringify({
-            get_all_history: true,
-            page_num: 1,
-            page_size: 1e4,
-          }),
-        })
-      ).json();
-      await Promise.all(
-        results.map(
-          async ({ assistant_id, conversation_id }) =>
-            await (
-              await fetch(
-                '/chatglm/backend-api/assistant/conversation/delete',
-                {
-                  method: 'POST',
-                  headers: {
-                    authorization,
-                    'content-type': 'application/json',
-                  },
-                  body: JSON.stringify({ assistant_id, conversation_id }),
-                },
-              )
-            ).json(),
-        ),
-      );
-    },
-    async 'https://metaso.cn'() {
+    //    async 'chatglm.cn'() {
+    //      const token = document.cookie.match(
+    //        new RegExp('(^|;\\s*)(chatglm_token)=([^;]*)'),
+    //      )?.[3];
+    //      if (!token) return console.error('token not found');
+    //      const authorization = 'Bearer ' + decodeURIComponent(token);
+    //      const {
+    //        result: { results },
+    //      } = await (
+    //        await fetch('/chatglm/backend-api/assistant/search_log_history', {
+    //          method: 'POST',
+    //          headers: { authorization, 'content-type': 'application/json' },
+    //          body: JSON.stringify({
+    //            get_all_history: true,
+    //            page_num: 1,
+    //            page_size: 1e4,
+    //          }),
+    //        })
+    //      ).json();
+    //      await Promise.all(
+    //        results.map(
+    //          async ({ assistant_id, conversation_id }) =>
+    //            await (
+    //              await fetch(
+    //                '/chatglm/backend-api/assistant/conversation/delete',
+    //                {
+    //                  method: 'POST',
+    //                  headers: {
+    //                    authorization,
+    //                    'content-type': 'application/json',
+    //                  },
+    //                  body: JSON.stringify({ assistant_id, conversation_id }),
+    //                },
+    //              )
+    //            ).json(),
+    //        ),
+    //      );
+    //    },
+    async 'metaso.cn'() {
       localStorage.removeItem('data-store');
-      const token = '';
       const {
         data: { content },
       } = await (
@@ -286,126 +230,62 @@
         ),
       );
     },
-    async 'https://grok.com'() {
-      const { conversations } = await (
-        await fetch('/rest/app-chat/conversations?pageSize=100')
+    async 'grok.com'() {
+      await (
+        await fetch('/rest/app-chat/conversations', { method: 'DELETE' })
       ).json();
-      return Promise.all(
-        conversations.map(async ({ conversationId: id }) =>
-          (
-            await fetch('/rest/app-chat/conversations/soft/' + id, {
-              method: 'DELETE',
-            })
-          ).json(),
-        ),
-      );
+    },
+    async 'chat.qwen.ai'() {
+      const { success } = await (
+        await fetch(`/api/v2/chats`, { method: 'DELETE' })
+      ).json();
+      if (!success) _.throw('request failed');
     },
   };
-  tm['FnBtns'].push({
-    text: 'Clear AI History',
-    style: { background: 'cadetblue' },
-    onclick() {
-      setTimeout(() =>
-        ui.dialog.show(
-          'Choose one',
-          '',
-          _.map(urlTaskMap, (task, url) => ({
-            text: new URL(url).hostname.split('.').at(-2) ?? '',
-            ...(document.URL.includes(url)
-              ? { onclick: task, style: { background: 'steelblue' } }
-              : { onclick: () => comm.send(url, { x: clearSignal }) }),
-          })),
-        ),
-      );
+
+  const clearKey = 'clearAIHistory';
+  router(
+    _.mapValues(hostTasks, (task) => async () => {
+      tm[clearKey] = () =>
+        task().then(
+          (e) => log.info('clear AI history success', e),
+          (e) => log.error('clear AI history failed', e),
+        );
+      if ((await comm.receive()).clearKey === clearKey) tm[clearKey]();
+    }),
+  );
+
+  const btns = _.map(hostTasks, (task, host) => ({
+    text: host.split('.').at(-2) ?? host,
+    hidden: true,
+    ...(location.host === host
+      ? { onclick: tm[clearKey], color: 'steelblue' }
+      : { onclick: () => comm.send(`https://${host}`, { clearKey }) }),
+  }));
+  tm['FnBtns'].push(
+    {
+      text: 'Clear AI History',
+      color: 'cadetblue',
+      onclick() {
+        const { props } = ui.dialog({});
+        vanX.replace(props.buttons, (l) =>
+          l.map((v) => ({ ...v, hidden: !v.hidden })),
+        );
+      },
     },
-  });
-  matchURL(
-    ..._.map(
-      urlTaskMap,
-      (task, url) =>
-        /** @type {[String, () => void]} */ ([
-          url,
-          async () => {
-            if ((await comm.receive()).x !== clearSignal) return;
-            log('clear AI history start');
-            task().then(
-              (e) => log.info('clear AI history success', e),
-              (e) => log.error('clear AI history failed', e),
-            );
-          },
-        ]),
-    ),
+    ...btns,
   );
 })();
 
-/** Different site task */
+/** Route */
 (function () {
   'use strict';
   if (self != top) return;
   const { $, $$, ui, log, _ } = tm;
 
-  tm.matchURL(
-    [
-      'bing.com',
-      () => {
-        const url = new URL(location.href);
-        if (url.pathname === '/ck/a') return;
-        const search = url.searchParams;
-        if (search.get('cc') === 'us' && search.get('mkt') === null) return;
-        search.set('cc', 'us');
-        search.delete('mkt');
-        location.search = search + '';
-      },
-    ],
-    [
-      /developer.mozilla.org\/[\w-]+\/docs/,
-      () => {
-        if (location.href.includes('zh-CN')) return;
-        if (history.length > 2) return;
-        history.pushState(
-          null,
-          '',
-          (location.href = location.href.replace(
-            /\/([\w-]+)\/docs/,
-            '/zh-CN/docs',
-          )),
-        );
-      },
-    ],
-
-    [
-      /www.zhihu.com\/(follow)?$/,
-      () => {
-        $('#TopstoryContent')?.on('click', (e) => {
-          const target = /** @type {HTMLElement} */ (e.target);
-          if (target.classList[1] != 'ContentItem-more') return;
-          const el = target.parentElement?.parentElement?.parentElement;
-          if (!el) return;
-          const dom = $(el);
-          dom.observe(
-            function (ob) {
-              const childrens = dom.$$('div');
-              const time = childrens.find(({ el }) =>
-                /(发布|编辑)于/.test(el.innerText),
-              );
-              const vote = childrens.find(({ el }) =>
-                /赞同了该(回答|文章)/.test(el.innerText),
-              );
-              vote?.hide();
-              if (!time) return log('time not found');
-              time.mount(dom, 0);
-              time.el.innerHTML += `<p>段落数 ${dom.$$('.RichContent-inner p').length}</p>`;
-              ob.disconnect();
-            },
-            { childList: true },
-          );
-        });
-      },
-    ],
-
-    [
-      'zhihu.com',
-      () => {
+  tm.router({
+    'www.zhihu.com': {
+      ''() {
         tm['FnBtns'].push({
           text: 'Clear Inbox',
           onclick: async () => {
@@ -420,116 +300,154 @@
           },
         });
       },
-    ],
-    [
-      'www.zhihu.com/question',
-      () => {
-        $('.App-main .QuestionHeader-title')?.set({
-          title: `Create on ${
-            $('meta[itemprop=dateCreated]')?.el.content
-          }\nEdit on${$('meta[itemprop=dateModified]')?.el.content}`,
-        });
-        $('header')?.hide();
-      },
-    ],
-    [
-      'zhuanlan.zhihu.com/p',
-      () => {
-        $('.ContentItem-time')?.mount('article', '.Post-RichTextContainer');
-      },
-    ],
+    },
 
-    [
-      'heroicons.dev',
-      () => {
-        $('#root > aside.sidebar-2 > div')?.hide();
-      },
-    ],
-    [
-      'www.pixiv.net/artworks',
-      () => {
-        function delADs() {
-          $$('iframe').forEach((e) => e.hide());
+    'www.acgbox.link'() {
+      $$('a.card').map((e) => {
+        e.href = e.dataset['url'] ?? '';
+      });
+    },
+
+    'nature.com'() {
+      ['c-hero__link', 'c-card__link', 'u-faux-block-link'].map((c) =>
+        $$(`a.${c}`).map((e) => {
+          e.classList.remove(c);
+          e.classList.add('u-link-inherit');
+        }),
+      );
+    },
+
+    'github.com'() {
+      tm['FnBtns'].push(
+        {
+          text: 'Page',
+          onclick() {
+            const matches = location.pathname.match(/^\/(.+)\/(.+)/);
+            if (!matches) return;
+            window.open(`https://${matches[1]}.github.io/${matches[2]}`);
+          },
+        },
+        {
+          text: 'Stars',
+          onclick() {
+            window.open(`${location.href}/stargazers`);
+          },
+        },
+      );
+    },
+
+    'www.duolingo.com': {
+      async ''() {
+        if (location.hash === '#auto') {
+          // auto continue
+          let btn = await Promise.any([
+            $.wait('button[data-test=story-start]', { count: 180 }),
+            $.wait('button[data-test=stories-player-continue]', {
+              count: 180,
+            }),
+          ]);
+          if (btn.dataset['test'] === 'story-start') {
+            log('find start');
+            await new Promise((r) => btn.addEventListener('click', r));
+            btn = await $.wait('button[data-test=stories-player-continue]');
+          }
+
+          log('find continue');
+          btn.click();
+          $.observe(btn, () => btn.disabled || btn.click(), {
+            attributes: true,
+            attributeFilter: ['disabled'],
+          });
+
+          $.observe(
+            await $.wait(':has(+ #bottom-spacer)'),
+            async () => {
+              log('done');
+              const id = location.pathname.split('/').at(-1);
+              if (!id) return log.error('no story id found');
+              stories.delete(id);
+              localStorage.setItem('tm:stories', JSON.stringify([...stories]));
+              const doneBtn = await $.wait(
+                'button[data-test=stories-player-done]',
+              );
+              window.history.length === 1 ? window.close() : doneBtn.click();
+            },
+            { childList: true },
+          );
         }
-        // delADs();
-        $('body')?.observe(delADs, { childList: true });
-      },
-    ],
-    [
-      'www.acgbox.link',
-      () => {
-        $$('a.card').map((e) => {
-          e.set({ href: e.el.dataset.url });
+
+        // auto select story
+        /** @type {Set<string>} */
+        let stories = new Set(
+          JSON.parse(localStorage.getItem('tm:stories') ?? '[]'),
+        );
+        tm['FnBtns'].push({
+          text: 'story:' + stories.size,
+          async onclick() {
+            if (!stories.size) {
+              ui.snackbar({ text: 'fetching stories...' });
+              const list = (
+                await (
+                  await fetch(
+                    'https://stories.duolingo.com/api2/practiceHubStories?' +
+                      new URLSearchParams({
+                        featuredStoryId:
+                          'en-zh-history2-radio-play-0-autogenerated',
+                        fromLanguage: 'zh',
+                        learningLanguage: 'en',
+                      }),
+                    {
+                      headers: {
+                        Authorization: `Bearer ${(await window.cookieStore.get('jwt_token'))?.value}`,
+                      },
+                    },
+                  )
+                ).json()
+              ).stories;
+              stories = new Set(list.map(({ id }) => id));
+              localStorage.setItem('tm:stories', JSON.stringify([...stories]));
+            }
+            const goto = () => {
+              const id = [...stories][Math.floor(Math.random() * stories.size)];
+              window.open(`/stories/${id}?mode=LISTEN#auto`);
+            };
+            const count = 1; //+(window.prompt('How many stories to goto?') ?? 0);
+            for (let i = 0; i < count; i++) goto();
+            this.parentElement.parentElement.close();
+          },
         });
       },
-    ],
-    [
-      'nature.com',
-      () => {
-        ['c-hero__link', 'c-card__link', 'u-faux-block-link'].map((c) =>
-          $$(`a.${c}`).map((e) => {
-            e.el.classList.remove(c);
-            e.el.classList.add('u-link-inherit');
-          }),
+      lesson() {
+        location.hash = '#auto';
+      },
+    },
+
+    'www.youtube.com': {
+      async watch() {
+        // change cover size mode
+        (
+          await $.wait('div.ytp-cued-thumbnail-overlay-image')
+        ).style.backgroundSize = 'contain';
+        // more height
+        const player = await $.wait('ytd-watch-flexy div#player');
+        player.style.setProperty(
+          '--ytd-watch-flexy-height-ratio',
+          '' +
+            (+getComputedStyle(player).getPropertyValue(
+              '--ytd-watch-flexy-width-ratio',
+            ) /
+              16) *
+              11,
         );
+        // shortcut
+        /** @type {Record<string, number>} */
+        const speeds = { '!': 1, '@': 2 };
+        document.addEventListener('keydown', async (e) => {
+          if (!e.shiftKey) return;
+          const speed = speeds[e.key];
+          if (speed) (await $.wait('video')).playbackRate = speed;
+        });
       },
-    ],
-    [
-      'x.com',
-      () => {
-        $(document.body).observe(
-          (ob) => {
-            const root = $(':has(>div[data-testid="cellInnerDiv"])');
-            if (!root) return;
-            root.observe(
-              tm.rmAD('x', [
-                'div[data-testid="cellInnerDiv"]:has(article div[id]>.r-1awozwy>svg)',
-              ]),
-              { childList: true },
-            );
-            ob.disconnect();
-          },
-          { childList: true, subtree: true },
-        );
-      },
-    ],
-    [
-      /github.(com|io)/,
-      () => {
-        const url = new URL(location.href);
-        function repo2page() {
-          if (url.host !== 'github.com') return;
-          const [_, usr, rep] = url.pathname.split('/');
-          return `https://${usr}.github.io/${rep ?? ''}`;
-        }
-        function page2repo() {
-          if (!url.host.endsWith('.github.io')) return;
-          const usr = url.host.replace('.github.io', '');
-          const [_, rep] = url.pathname.split('/');
-          return `https://github.com/${usr}/${rep ?? ''}`;
-        }
-        tm['FnBtns'].push(
-          {
-            text: 'Repo <-> Page',
-            onclick() {
-              repo2page() && window.open(repo2page());
-              page2repo() && window.open(page2repo());
-            },
-          },
-          {
-            text: 'Stargazers',
-            onclick() {
-              window.open(`${page2repo() ?? location.href}/stargazers`);
-            },
-          },
-        );
-      },
-    ],
-    [
-      /pptr.dev/,
-      () => {
-        document.body.style.setProperty('--doc-sidebar-width', '15rem');
-      },
-    ],
-  );
+    },
+  });
 })();
