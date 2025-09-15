@@ -1,12 +1,10 @@
 // ==UserScript==
 // @name        tm
-// @version     0.2
+// @version     latest
 // @author      cubxx
 // @match       *://*/*
-// @require     https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/lib/lit.js
-// @require     https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/lib/sober.js
-// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/tm.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/tm.user.js
+// @require     https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.5.5.nomodule.min.js
+// @require     https://cdn.jsdelivr.net/npm/vanjs-ext@0.6.3/dist/van-x.nomodule.min.js
 // @run-at      document-start
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%23bf0" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
@@ -15,14 +13,13 @@
 const tm = (function () {
   'use strict';
   if (Object.prototype.hasOwnProperty.call(window, 'tm'))
-    throw 'tm env error: global variable "tm" already exists';
+    throw new Error('tm env error: global variable "tm" already exists');
   console.debug('tm env init', self.location.href);
 
   const _ = {
     exit(...e) {
-      debugger;
       log.error(...e);
-      throw 'tm exit';
+      throw new Error('tm exit');
     },
     /**
      * @template {any[]} P
@@ -112,23 +109,27 @@ const tm = (function () {
   const log = (function () {
     const console = { ...window.console };
     const color = '#bf0';
-    const handle =
+    const factory =
       (key) =>
-      (msg, ...e) =>
+      (msg, ...e) => {
+        key === 'error' && ui.snackbar({ text: msg, color: 'crimson' });
+        key === 'info' && ui.snackbar({ text: msg, color: 'seagreen' });
+        key === 'log' && ui.snackbar({ text: msg, color: 'steelblue' });
         console[key](
           `%c tm %c ${msg} %c`,
-          $.style({
+          $.css({
             background: color,
             color: '#000',
             font: 'italic bold 12px/1 serif',
             'border-radius': '4px',
           }),
-          $.style({ color: color }),
+          $.css({ color: color }),
           '',
           ...e,
         );
-    return new Proxy(/** @type {Console & Console['log']} */ (handle('log')), {
-      get: (o, p) => handle(p),
+      };
+    return new Proxy(/** @type {Console & Console['log']} */ (factory('log')), {
+      get: (o, p) => factory(p),
       set: () => false,
     });
   })();
@@ -143,7 +144,7 @@ const tm = (function () {
       );
     },
     /**
-     * @template {{}} T
+     * @template T
      * @template {keyof T} K
      * @template {{
      *   value: T[K];
@@ -193,8 +194,10 @@ const tm = (function () {
         return shouldBlock;
       };
       hack.override(window, 'fetch', ({ value }) => ({
+        //@ts-ignore
         value(...e) {
           const url = e[0] instanceof Request ? e[0].url : e[0];
+          //@ts-ignore
           return check(url) ? Promise.reject() : value(...e);
         },
       }));
@@ -229,17 +232,11 @@ const tm = (function () {
         },
       }));
     },
-    /**
-     * @param {RegExp | string} str
-     * @see https://github.com/theajack/disable-devtool
-     */
-    enableDevtool(str) {
+    /** @see https://github.com/theajack/disable-devtool */
+    enableDevtool() {
       hack.override(Object, 'assign', ({ value }) => ({
         value(...e) {
           if (
-            hack.stack.some((e) =>
-              typeof str === 'string' ? e.includes(str) : str.test(e),
-            ) &&
             typeof e[0] === 'function' &&
             _.hasOwnKey(e[1], 'isDevToolOpened')
           ) {
@@ -281,6 +278,7 @@ const tm = (function () {
               );
             };
           }
+          //@ts-ignore
           return value.apply(this, e);
         },
       }));
@@ -291,6 +289,12 @@ const tm = (function () {
           log.debug('console.clear() is disabled');
         },
       }));
+    },
+    /** @param {string} text @param {DocumentOrShadowRoot} [root] */
+    injectCss(text, root = document) {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(text);
+      root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
     },
   };
   /** @see https://developer.mozilla.org/docs/Glossary/CSS_Selector */
@@ -338,7 +342,7 @@ const tm = (function () {
         return typeof value === 'string' ? value : value.join(' ');
       },
       /** Style string @param {ConvertProps['style']} [value] */
-      style(value) {
+      css(value) {
         if (!value) return '';
         if (typeof value === 'string') return value;
         return _.map(value, (v, k) => `${k}:${v}`).join(';');
@@ -351,6 +355,37 @@ const tm = (function () {
       },
       _getCtx(that) {
         return that instanceof Dom ? that.el : window.document;
+      },
+      /**
+       * @template {string} S
+       * @overload
+       * @param {S} selector
+       * @param {{ interval?: number; count?: number }} [options]
+       * @returns {Promise<Dom<Selector<S>>>}
+       */
+      async wait(selector, options) {
+        const opts = {
+          interval: 1e3,
+          count: 30,
+          ...options,
+        };
+        let count = 0;
+        /** @type {ConstructorParameters<typeof Promise<null | Dom>>[0]} */
+        const executor = (resolve) => {
+          window.setTimeout(() => {
+            try {
+              resolve($(selector));
+            } catch (e) {
+              resolve(null);
+              log.error('wait error:', e);
+            }
+          }, opts.interval);
+        };
+        while (true) {
+          const res = await new Promise(executor);
+          if (res) return res;
+          if (++count > opts.count) _.exit('wait timeout:', selector);
+        }
       },
     },
   );
@@ -367,6 +402,8 @@ const tm = (function () {
   }
   /** @template {El} T */
   class Dom {
+    $ = $;
+    $$ = $$;
     /** @param {T} el */
     constructor(el) {
       /** @type {T} */
@@ -486,7 +523,7 @@ const tm = (function () {
        */
       const converts = {
         class: (value) => (el.className = $.class(value)),
-        style: (value) => (el.style.cssText = $.style(value)),
+        style: (value) => (el.style.cssText = $.css(value)),
       };
       _.each(converts, (convert, key) => {
         if (_.hasOwnKey(props, key)) {
@@ -499,222 +536,178 @@ const tm = (function () {
       return this;
     }
   }
-  Dom.prototype.$ = $;
-  Dom.prototype.$$ = $$;
 
   const ui = (function () {
-    const id = 'tm-ui';
-    const shadow = {
-      createRoot() {
-        const container = $.h('section', {
-          id: id,
-          style: { position: 'fixed', 'z-index': 1e5 },
-        }).mount('body').el;
-        const shadow = container.attachShadow({ mode: 'open' });
-        const sheet = new CSSStyleSheet();
-        sheet.replaceSync(`
-                    :host{}
-                    s-snackbar::part(container){background:var(--tm-snackbar-color)}
-                `);
-        shadow.adoptedStyleSheets = [sheet];
-        return shadow;
-      },
-      get root() {
-        return (
-          document.querySelector('#' + id)?.shadowRoot ?? this.createRoot()
-        );
-      },
-      get sheet() {
-        return this.root.adoptedStyleSheets[0];
-      },
-      /** @returns {CSSStyleDeclaration} */
-      get hostStyle() {
-        //@ts-ignore
-        return this.sheet.cssRules[0].style;
-      },
+    const { div, dialog, button } = van.tags;
+
+    const container = div({ id: 'tm-ui', style: 'margin: 0; padding: 0;' });
+    const root = container.attachShadow({ mode: 'open' });
+    hack.injectCss(
+      `* { ${$.css({
+        'font-size': '16px',
+        'line-height': 1.5,
+        color: '#fff',
+        transition: '0.2s',
+      })} }
+
+      dialog { ${$.css({
+        border: '1px solid #fff3',
+        'border-radius': '8px',
+        padding: '20px 24px',
+        background: 'transparent',
+        'backdrop-filter': 'blur(3px)',
+      })} }
+      dialog::backdrop { background: #0008; }
+
+      button { ${$.css({
+        padding: '6px 12px',
+        'border-radius': '4px',
+        border: 'none',
+        cursor: 'pointer',
+        color: 'inherit',
+      })} }
+      button:hover, button:focus-visible { ${$.css({ scale: 1.05, outline: 'none' })} }
+      button:active { ${$.css({ transform: 'translateY(4px)' })} }`,
+      root,
+    );
+
+    /**
+     * @type {<T extends LooseObject, U extends HTMLElement>(
+     *   setup: (props: T) => U,
+     *   defaultProps: T,
+     * ) => { props: T } & U}
+     */
+    const Component = (setup, defaultProps) => {
+      const props = vanX.reactive(defaultProps);
+      const el = setup(props);
+      return Object.assign(el, { props });
     };
     /**
-     * @template {HTMLElement & { show(): void; dismiss(): void }} T
-     * @template {any[]} U Update args
+     * @type {<T extends LooseObject, U extends HTMLElement>(
+     *   setup: (props: T & { open?: boolean }) => U,
+     *   defaultProps: T & { open?: boolean },
+     * ) => (
+     *   patchProps: Partial<T & { open?: boolean }>,
+     * ) => U & { props: T & { open?: boolean } }}
      */
-    class Popup {
-      dom;
-      update;
-      #hasMounted = false;
-      /**
-       * @param {Dom<T>} dom
-       * @param {(this: Dom<T>, ...e: U) => Parameters<T['show']> | void} update
-       *   Update fn
-       */
-      constructor(dom, update) {
-        const { tagName } = dom.el;
-        if (!window.customElements.get(tagName.toLowerCase())) {
-          log.warn(`${tagName} is not defined, please import sober`);
+    const define = (setup, defaultProps) => {
+      let el;
+      return (patchProps) => {
+        if (!container.isConnected) {
+          document.body.appendChild(container);
         }
-        this.dom = dom;
-        this.update = update.bind(this.dom);
-      }
-      /** @param {U} e */
-      show(...e) {
-        if (!this.#hasMounted) {
-          shadow.root.appendChild(this.dom.el);
-          this.#hasMounted = true;
+        if (!el) {
+          defaultProps.open = false;
+          el = Component(setup, defaultProps);
+          root.appendChild(el);
         }
         //@ts-ignore
-        this.dom.el.show(...(this.update(...e) ?? []));
-      }
-      close() {
-        this.dom.el.dismiss();
-      }
-    }
-    function cache(fn) {
-      let cache = null;
-      return function () {
-        //@ts-ignore
-        if (null === cache) cache = fn.call(this);
-        return cache;
+        patchProps.open ??= true;
+        Object.assign(el.props, patchProps);
+        return el;
       };
-    }
-    const getters = {
-      get snackbar() {
-        return new Popup(
-          $.h('s-snackbar'),
-          /**
-           * @param {string} text
-           * @param {'crimson' | 'seagreen' | 'steelblue'} color
-           * @param {number} duration
-           */
-          function (text, color = 'steelblue', duration = 2e3) {
-            Object.assign(this.el, { textContent: text, duration });
-            shadow.hostStyle.setProperty('--tm-snackbar-color', color);
-          },
-        );
-      },
-      get dialog() {
-        return new Popup(
-          $.h('s-dialog'),
-          /**
-           * @param {string} title
-           * @param {string | HTMLTemplateResult} text
-           * @param {(Partial<
-           *   ConvertProps &
-           *     Pick<HTMLElementTagNameMap['s-button'], 'type'> & {
-           *       onclick?: (
-           *         this: HTMLElementTagNameMap['s-button'],
-           *         ev: MouseEvent,
-           *       ) => any;
-           *     }
-           * > & {
-           *   text: string | HTMLTemplateResult;
-           * })[]} actions
-           */
-          function (title, text, actions = []) {
-            const titleTp = title
-              ? lit.html`<div slot="headline">${title}</div>`
-              : '';
-            const conetntTp =
-              typeof text === 'string' && text
-                ? lit.html`<div slot="text">${text}</div>`
-                : text;
-            const actionsTp = actions.map((action) => {
-              return lit.html`
-                <s-button
-                  slot="action"
-                  class=${$.class(action.class)}
-                  style=${$.style(action.style)}
-                  type=${action.type}
-                  .onclick=${action.onclick}
-                >${action.text}</s-button>`;
-            });
-            lit.render([titleTp, conetntTp, actionsTp], this.el);
-          },
-        );
-      },
-      /**
-       * @typedef {Partial<ConvertProps> & {
-       *   text: string | HTMLTemplateResult;
-       *   items: MenuItemOrGroup[];
-       * }} MenuGroup
-       *
-       *
-       * @typedef {Partial<ConvertProps> & {
-       *   text: string | HTMLTemplateResult;
-       *   onclick?: (
-       *     this: HTMLElementTagNameMap['s-popup-menu-item'],
-       *     ev: MouseEvent,
-       *   ) => any;
-       * }} MenuItem
-       *
-       *
-       * @typedef {MenuGroup | MenuItem} MenuItemOrGroup
-       */
-      get menu() {
-        /**
-         * @param {MenuItemOrGroup} item
-         * @returns {item is MenuItem}
-         */
-        const isMenuItem = (item) => !_.hasOwnKey(item, 'items');
-        /** @param {MenuItemOrGroup[]} items */
-        function tp(items) {
-          return items.map((item) =>
-            isMenuItem(item)
-              ? lit.html`
-                <s-popup-menu-item
-                  class=${$.class(item.class)}
-                  style=${$.style(item.style)}
-                  .onclick=${item.onclick}
-                >${item.text}</s-popup-menu-item>`
-              : lit.html`
-                <s-popup-menu
-                  class=${$.class(item.class)}
-                  style=${$.style(item.style)}
-                >
-                  <s-popup-menu-item slot="trigger">
-                    ${item.text}
-                    <s-icon slot="end" type="arrow_drop_right"></s-icon>
-                  </s-popup-menu-item>
-                  ${tp(item.items)}
-                </s-popup-menu>`,
-          );
-        }
-        return new Popup(
-          $.h('s-popup-menu'),
-          /** @param {MenuItemOrGroup[]} items @param {string | Dom} target */
-          function (items, target) {
-            lit.render(tp(items), this.el);
-            return [$.el(target)];
-          },
-        );
-      },
-      get confirm() {
-        const dialog = this.dialog;
-        const convert = ([text, onclick]) => ({ text, onclick });
-        return new Popup(
-          dialog.dom,
-          /**
-           * @typedef {[text: string, onclick: () => void]} Action
-           * @param {string} title
-           * @param {string | HTMLTemplateResult} text
-           * @param {Action} ok
-           * @param {Action} cancel
-           * @returns
-           */
-          function (title, text, ok, cancel) {
-            dialog.update(title, text, [
-              { type: 'filled', ...convert(ok) },
-              { type: 'outlined', ...convert(cancel) },
-            ]);
-          },
-        );
-      },
     };
-    return Object.defineProperties(
-      getters,
-      _.mapValues(Object.getOwnPropertyDescriptors(getters), ({ get }) => ({
-        get: cache(get),
-      })),
-    );
+    return {
+      Component,
+      define,
+      snackbar: define(
+        (props) => {
+          const el = div({
+            style: $.css({
+              position: 'fixed',
+              'z-index': 99999,
+              bottom: '20px',
+              left: '50%',
+              translate: '-50%',
+              padding: '8px 14px',
+              'border-radius': '8px',
+            }),
+            textContent: () => props.text,
+          });
+          van.derive(
+            () => (el.style.transform = `translateY(${props.open ? 0 : 60}px)`),
+          );
+          van.derive(() => (el.style.backgroundColor = props.color));
+
+          /** @type {number | null} */
+          let handle = null;
+          van.derive(() => {
+            if (!props.open) return;
+            if (handle) {
+              window.clearTimeout(handle);
+              handle = null;
+            }
+            handle = window.setTimeout(
+              () => (props.open = false),
+              props.duration,
+            );
+          });
+          return el;
+        },
+        {
+          text: '',
+          /** @type {'crimson' | 'seagreen' | 'steelblue'} */
+          color: 'steelblue',
+          duration: 2e3,
+        },
+      ),
+      dialog: define(
+        (props) => {
+          const el = dialog(
+            { onpointerup: (e) => (props.open = e.target !== el) },
+            () =>
+              props.title &&
+              div(
+                {
+                  style: 'font-weight:bold;font-size:18px;margin-bottom:12px;',
+                },
+                props.title,
+              ),
+            () =>
+              props.content &&
+              div(
+                { style: 'margin-bottom:20px;white-space:pre-wrap;' },
+                props.content,
+              ),
+            () =>
+              vanX.list(
+                () => div({ style: 'display:flex;gap:8px;' }),
+                props.buttons,
+                ({ val: btn }) => {
+                  // btn.hidden ??= false;
+                  btn.color ??= 'gray';
+                  return button(
+                    {
+                      hidden: () => btn.hidden,
+                      style: () => `background: ${btn.color}`,
+                      onclick: btn.onclick,
+                    },
+                    () => btn.text,
+                  );
+                },
+              ),
+          );
+          van.derive(() => (props.open ? el.showModal() : el.close()));
+          return el;
+        },
+        {
+          title: '',
+          /** @type {string | Node} */
+          content: '',
+          /**
+           * @type {{
+           *   text: string;
+           *   onclick: (this: HTMLButtonElement) => void;
+           *   color?: string;
+           *   hidden?: boolean;
+           * }[]}
+           */
+          buttons: [],
+        },
+      ),
+    };
   })();
+
   const fs = {
     /**
      * @param {Blob} blob
@@ -859,86 +852,29 @@ const tm = (function () {
       return promise;
     },
   };
-  const signal = (function () {
-    /** @type {Effect | null} */
-    let currentEffect = null;
-    /**
-     * @template T
-     * @param {SignalNode<T>} node
-     */
-    function readSignal(node) {
-      currentEffect && node.subscribers.add(currentEffect);
-      return node.value;
-    }
-    /**
-     * @template T
-     * @param {SignalNode<T>} node
-     * @param {T} newValue
-     */
-    function writeSignal(node, newValue) {
-      node.value = newValue;
-      node.subscribers.forEach((effect) => {
-        currentEffect !== effect && effect();
-      });
-    }
-    /**
-     * @template T
-     * @param {T} value
-     * @returns {Signal<T>}
-     */
-    function createSignal(value) {
-      /** @type {SignalNode<T>} */
-      const node = { value, subscribers: new Set() };
-      return [() => readSignal(node), (value) => writeSignal(node, value)];
-    }
-    /** @param {Effect} effect */
-    function createEffect(effect) {
-      currentEffect = () => {
-        try {
-          effect();
-        } finally {
-          currentEffect = null;
-        }
-      };
-      currentEffect();
-    }
-    return { createSignal, createEffect };
-  })();
   const tm = /** @type {const} */ ({
     [Symbol.toStringTag]: 'tm',
-    ...{ _, log, hack, $, $$, ui, fs, comm, signal },
-    import: _.mapValues(
-      {
-        axios: (v = 'latest') => `https://cdn.jsdelivr.net/npm/axios@${v}`,
-        Cookies: (v = 'latest') =>
-          `https://cdn.jsdelivr.net/npm/js-cookie@${v}`,
-        FFmpeg: (v = 'latest') =>
-          `https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@${v}`,
-        html2canvas: (v = 'latest') =>
-          `https://cdn.jsdelivr.net/npm/html2canvas@${v}`,
-        tailwindcss: (v = '') => `https://cdn.tailwindcss.com/${v}`,
-      },
-      (getUrl) =>
-        /** @param {string} [version] */
-        (version) => {
-          const url = getUrl(version);
-          return fetch(url)
-            .then(
-              (e) => e.text(),
-              () => {
-                return '';
-              },
-            )
-            .then((code) => new Function(code)());
-        },
-    ),
+    ...{ _, log, hack, $, $$, ui, fs, comm },
+    /** @param {string} url */
+    async import(url) {
+      const res = await fetch(url);
+      if (!res.ok) _.exit('fetch error:', res);
+      const type = res.headers.get('Content-Type');
+      if (!type?.includes('javascript')) _.exit('not js:', type);
+      const code = await res.text();
+      return new Function(code)();
+    },
     /** @param {[match: RegExp | string, fn: () => void][]} map */
     matchURL(...map) {
-      const url = document.URL;
-      map.forEach(([str, fn]) => {
-        (typeof str === 'string' ? url.includes(str) : str.test(url)) && fn();
-      });
+      const url = location.href;
+      for (const [str, fn] of map) {
+        if (typeof str === 'string' ? url.includes(str) : str.test(url)) {
+          log.info('match: ' + str);
+          fn();
+        }
+      }
     },
+    /** Add and run route change listener */
     onRouteChange: (function () {
       const queue = [];
       const trigger = () => queue.forEach((cb) => cb());
@@ -950,48 +886,11 @@ const tm = (function () {
         },
       }));
       /** @param {() => void} cb */
-      return (cb) => queue.push(cb);
+      return (cb) => {
+        cb();
+        queue.push(cb);
+      };
     })(),
-    /**
-     * @template {Lowercase<string>} [P=never] Default is `never`
-     * @param {string} name
-     * @param {(props: Record<P, () => string>) => () => HTMLTemplateResult} setup
-     * @param {P[]} propDefs
-     * @see https://github.com/apprat/sober/blob/main/src/core/element.ts
-     * @see https://github.com/yyx990803/vue-lit/blob/master/index.js
-     * @see https://github.com/ryansolid/dom-expressions
-     */
-    defineComponent(name, setup, propDefs = []) {
-      window.customElements.define(
-        'tm-' + name.toLowerCase(),
-        class extends HTMLElement {
-          static get observedAttributes() {
-            return propDefs;
-          }
-          constructor() {
-            super();
-            const getters = /** @type {Record<P, Signal<string>[0]>} */ ({});
-            const setters = /** @type {Record<P, Signal<string>[1]>} */ ({});
-            this.setters = setters;
-            propDefs.forEach((k) => {
-              const [get, set] = signal.createSignal(
-                this.getAttribute(k) ?? '',
-              );
-              getters[k] = get;
-              setters[k] = set;
-            });
-            const toTemplate = setup(getters);
-            const root = this.attachShadow({ mode: 'open' });
-            signal.createEffect(() => {
-              lit.render(toTemplate(), root);
-            });
-          }
-          attributeChangedCallback(name, oldValue, newValue) {
-            this.setters[name](newValue);
-          }
-        },
-      );
-    },
     /** @param {string} name @param {string[]} selectors @returns remove handler */
     rmAD(name, selectors) {
       const rm = () => {
@@ -1004,7 +903,6 @@ const tm = (function () {
         return len;
       };
       tm.rmAD[name] = rm;
-      rm();
       tm.onRouteChange(rm);
       requestIdleCallback(rm);
       document.addEventListener('DOMContentLoaded', rm);
@@ -1012,15 +910,7 @@ const tm = (function () {
     },
   });
 
-  Object.freeze(tm);
-  return /** @type {typeof tm} */ (window['tm'] = Object.create(tm));
+  return /** @type {typeof tm} */ (
+    window['tm'] = Object.create(Object.freeze(tm))
+  );
 })();
-
-tm.matchURL(
-  ['youtube.com', () => tm.hack.trustedTypes()],
-  ['translate.google.com', () => tm.hack.trustedTypes()],
-  ['fanyi.youdao.com', () => tm.hack.enableDevtool('chunk-vendors')],
-  ['xiaoeknow.com', () => tm.hack.infDebugger()],
-  ['copilot.microsoft.com', () => tm.hack.trustedTypes('@centro/hvc-loader')],
-  ['chatgpt.com', () => tm.hack.disableConsoleClear()],
-);

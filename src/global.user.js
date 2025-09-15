@@ -1,10 +1,8 @@
 // ==UserScript==
 // @name        global
-// @version     0.2
+// @version     latest
 // @author      cubxx
 // @match       *://*/*
-// @updateURL   https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
-// @downloadURL https://cdn.jsdelivr.net/gh/cubxx/tampermonkey-script/src/global.user.js
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%230bf" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
 // ==/UserScript==
@@ -22,26 +20,35 @@
         const text = getSelection()?.toString();
         if (!text) return;
         navigator.clipboard.writeText(text).then(
-          () => ui.snackbar.show('copy success', 'seagreen'),
-          (err) => ui.snackbar.show('copy failed', 'crimson'),
+          () => log.info('copy success'),
+          (err) => log.error('copy failed', err),
         );
       },
     ],
     [
       (e) => e.ctrlKey && e.key === '`',
       (function FnPanel() {
-        /** @type {NonNullable<Parameters<typeof ui.dialog.show>[2]>[]} */
-        tm['FnBtns'] = [
-          {
-            text: 'Design Mode',
-            style: { background: 'seagreen' },
-            onclick() {
-              _.toggle(document, 'designMode', ['on', 'off']);
-              _.toggle(this.style, 'opacity', ['0.5', '1']);
+        tm['FnBtns'] =
+          /**
+           * @type {NonNullable<
+           *   Parameters<typeof ui.dialog>[0]['buttons']
+           * >}
+           */
+          ([
+            {
+              text: 'Design Mode',
+              color: 'seagreen',
+              onclick() {
+                _.toggle(document, 'designMode', ['on', 'off']);
+                _.toggle(this.style, 'opacity', ['0.5', '1']);
+              },
             },
-          },
-        ];
-        return () => ui.dialog.show('', '', tm['FnBtns']);
+          ]);
+        const { props } = ui.dialog({ open: false, buttons: tm['FnBtns'] });
+        return () => {
+          vanX.replace(props.buttons, () => tm['FnBtns']);
+          ui.dialog({ title: '', content: '' });
+        };
       })(),
     ],
   ];
@@ -49,7 +56,7 @@
     'keydown',
     (e) => {
       for (const [is, fn] of listeners)
-        if (is(e)) return e.stopImmediatePropagation(), fn();
+        if (is(e)) return (e.stopImmediatePropagation(), fn());
     },
     true,
   );
@@ -93,7 +100,7 @@
     'iframe[src*="app.moegirl"]',
     'iframe[src*="ads.nicovideo.jp"]',
   ]);
-})();
+});
 
 /** Auto skip */
 (function () {
@@ -133,36 +140,8 @@
   'use strict';
   const { $, $$, log, comm, matchURL, ui, _ } = tm;
   const clearSignal = 'tm:clearAIHistory';
-  /** @type {Record<string, () => Promise<unknown>>} */
+  /** @type {Record<string, () => Promise<any>>} */
   const urlTaskMap = {
-    async 'https://copilot.microsoft.com'() {
-      const msal_key = Object.keys(localStorage).find((k) =>
-        k.startsWith('msal.token.keys'),
-      );
-      if (!msal_key) return console.error('msal_key not found');
-      const msal_value = localStorage.getItem(msal_key);
-      if (!msal_value) return console.error('msal_value not found');
-      const token_key = JSON.parse(msal_value).accessToken.find((key) =>
-        key.includes('readwrite'),
-      );
-      if (!token_key) return console.error('token_key not found');
-      const token_value = localStorage.getItem(token_key);
-      if (!token_value) return console.error('token_value not found');
-      const authorization = 'Bearer ' + JSON.parse(token_value).secret;
-      const { results } = await (
-        await fetch('/c/api/conversations', { headers: { authorization } })
-      ).json();
-      await Promise.all(
-        results.map(async ({ id }) =>
-          (
-            await fetch('/c/api/conversations/' + id, {
-              method: 'DELETE',
-              headers: { authorization },
-            })
-          ).json(),
-        ),
-      );
-    },
     async 'https://chatgpt.com'() {
       const authorization =
         'Bearer ' +
@@ -301,24 +280,28 @@
       );
     },
   };
-  tm['FnBtns'].push({
-    text: 'Clear AI History',
-    style: { background: 'cadetblue' },
-    onclick() {
-      setTimeout(() =>
-        ui.dialog.show(
-          'Choose one',
-          '',
-          _.map(urlTaskMap, (task, url) => ({
-            text: new URL(url).hostname.split('.').at(-2) ?? '',
-            ...(document.URL.includes(url)
-              ? { onclick: task, style: { background: 'steelblue' } }
-              : { onclick: () => comm.send(url, { x: clearSignal }) }),
-          })),
-        ),
-      );
+  const newBtns = _.map(urlTaskMap, (task, url) => ({
+    text: new URL(url).hostname.split('.').at(-2) ?? '',
+    hidden: true,
+    ...(location.href.includes(url)
+      ? { onclick: task, color: 'steelblue' }
+      : { onclick: () => comm.send(url, { x: clearSignal }) }),
+  }));
+
+  tm['FnBtns'].push(
+    {
+      text: 'Clear AI History',
+      color: 'cadetblue',
+      onclick() {
+        const { props } = ui.dialog({});
+        vanX.replace(props.buttons, (l) =>
+          l.map((v) => ({ ...v, hidden: !v.hidden })),
+        );
+      },
     },
-  });
+    ...newBtns,
+  );
+
   matchURL(
     ..._.map(
       urlTaskMap,
@@ -327,7 +310,6 @@
           url,
           async () => {
             if ((await comm.receive()).x !== clearSignal) return;
-            log('clear AI history start');
             task().then(
               (e) => log.info('clear AI history success', e),
               (e) => log.error('clear AI history failed', e),
@@ -355,21 +337,6 @@
         search.set('cc', 'us');
         search.delete('mkt');
         location.search = search + '';
-      },
-    ],
-    [
-      /developer.mozilla.org\/[\w-]+\/docs/,
-      () => {
-        if (location.href.includes('zh-CN')) return;
-        if (history.length > 2) return;
-        history.pushState(
-          null,
-          '',
-          (location.href = location.href.replace(
-            /\/([\w-]+)\/docs/,
-            '/zh-CN/docs',
-          )),
-        );
       },
     ],
 
@@ -510,7 +477,7 @@
         }
         tm['FnBtns'].push(
           {
-            text: 'Repo <-> Page',
+            text: 'Repo / Page',
             onclick() {
               repo2page() && window.open(repo2page());
               page2repo() && window.open(page2repo());
@@ -529,6 +496,112 @@
       /pptr.dev/,
       () => {
         document.body.style.setProperty('--doc-sidebar-width', '15rem');
+      },
+    ],
+    [
+      'www.duolingo.com',
+      async () => {
+        tm.onRouteChange(async () => {
+          if (location.hash !== '#auto') {
+            if (location.pathname.startsWith('/lesson')) location.hash = 'auto';
+            return;
+          }
+
+          // auto continue
+          let btn = await Promise.any([
+            $.wait('button[data-test=story-start]', { count: 180 }),
+            $.wait('button[data-test=stories-player-continue]', { count: 180 }),
+          ]);
+          if (btn.el.dataset.test === 'story-start') {
+            log('find start');
+            await new Promise((r) => btn.on('click', r));
+            btn = await $.wait('button[data-test=stories-player-continue]');
+          }
+
+          log('find continue');
+          btn.el.click();
+          btn.observe((ob) => btn.el.disabled || btn.el.click(), {
+            attributes: true,
+            attributeFilter: ['disabled'],
+          });
+
+          (await $.wait(':has(+ #bottom-spacer)')).observe(
+            async (ob) => {
+              log('done');
+              const id = location.pathname.split('/').at(-1);
+              if (!id) return log.error('no story id found');
+              stories.delete(id);
+              localStorage.setItem('tm:stories', JSON.stringify([...stories]));
+              const doneBtn = await $.wait(
+                'button[data-test=stories-player-done]',
+              );
+              window.history.length === 1 ? window.close() : doneBtn.el.click();
+            },
+            { childList: true },
+          );
+        });
+        // auto select story
+        /** @type {Set<string>} */
+        let stories = new Set(
+          JSON.parse(localStorage.getItem('tm:stories') ?? '[]'),
+        );
+        tm['FnBtns'].push({
+          text: 'story:' + stories.size,
+          async onclick() {
+            if (!stories.size) {
+              ui.snackbar({ text: 'fetching stories...' });
+              stories = new Set(
+                (
+                  await (
+                    await fetch(
+                      'https://stories.duolingo.com/api2/practiceHubStories?' +
+                        new URLSearchParams({
+                          featuredStoryId:
+                            'en-zh-history2-radio-play-0-autogenerated',
+                          fromLanguage: 'zh',
+                          learningLanguage: 'en',
+                        }),
+                      {
+                        headers: {
+                          Authorization: `Bearer ${(await cookieStore.get('jwt_token'))?.value}`,
+                        },
+                      },
+                    )
+                  ).json()
+                ).stories.map(({ id }) => id),
+              );
+              localStorage.setItem('tm:stories', JSON.stringify([...stories]));
+            }
+            const goto = () => {
+              const id = [...stories][Math.floor(Math.random() * stories.size)];
+              window.open(`/stories/${id}?mode=LISTEN#auto`);
+            };
+            const count = 1; //+(window.prompt('How many stories to goto?') ?? 0);
+            for (let i = 0; i < count; i++) goto();
+          },
+        });
+      },
+    ],
+    [
+      'www.youtube.com/watch',
+      async () => {
+        const flexy = await $.wait('ytd-watch-flexy');
+
+        // change cover size mode
+        (
+          await $.wait('.ytp-cued-thumbnail-overlay-image')
+        ).el.style.backgroundSize = 'contain';
+        // more height
+        const player = await $.wait('ytd-watch-flexy div#player');
+        player.el.style.setProperty(
+          '--ytd-watch-flexy-height-ratio',
+          '' +
+            (+getComputedStyle(player.el).getPropertyValue(
+              '--ytd-watch-flexy-width-ratio',
+            ) /
+              16) *
+              11,
+        );
       },
     ],
   );

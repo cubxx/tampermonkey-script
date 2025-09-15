@@ -4,44 +4,37 @@ import { createReadStream, createWriteStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 
-function prompt(msg: string) {
-  const result = globalThis.prompt(msg);
+function prompt(msg: string, defaultValue?: string) {
+  const result = globalThis.prompt(
+    ...(defaultValue ? [msg, defaultValue] : [msg]),
+  );
   if (result === null) throw new Error('User cancelled');
   return result;
 }
 function mvMeta(from: string, to: string, port: string) {
   const p = Promise.withResolvers<void>();
-  let hasClosed = false;
   const readStream = createReadStream(from).on('error', p.reject);
   const writeStream = createWriteStream(to, { flags: 'w' })
-    .on('drain', () => rl.resume())
-    .on('close', () => p.resolve())
+    .once('finish', p.resolve)
     .on('error', p.reject);
+
+  let done = false;
   const rl = createInterface({ input: readStream, crlfDelay: Infinity })
     .on('line', (line) => {
-      if (hasClosed) return;
+      if (done) return;
       if (line.startsWith('// ==/UserScript==')) {
-        hasClosed = true;
+        writeStream.write(
+          `// @require  http://127.0.0.1:${port}/${path.basename(to)}\n`,
+        );
+        writeStream.write(line + '\n');
+        writeStream.end();
         rl.close();
-        writeStream.end(line);
+        done = true;
         return;
       }
-      // process each line
-      const newLine = line.startsWith('// @updateURL')
-        ? ''
-        : line.replace(
-            /^\/\/ @((?:downloadURL|require) +)(.+)$/,
-            (_, chars, link: string) =>
-              '// @' +
-              'require'.padEnd(chars.length) +
-              `http://localhost:${port}/` +
-              link.split('/').slice(-2).join('/'),
-          );
-      if (newLine === '') return;
-      const canWrite = writeStream.write(`${newLine}\n`);
-      if (!canWrite) rl.pause();
+      writeStream.write(line + '\n');
     })
-    .on('error', p.reject);
+    .on('error', (err) => writeStream.destroy(err));
   return p.promise;
 }
 function openUrl(browser: string, filepath: string) {
@@ -60,23 +53,18 @@ const scripts = (
 const targets = prompt(
   scripts.reduceRight(
     (acc, e, i) => '\n' + (i + 1) + ' ' + e.replace('.user.js', '') + acc,
-    '\nEnter the target file indexes (space-separated):',
+    '\nEnter the target file indexes (comma-separated):',
   ),
 )
-  .split(' ')
+  .split(',')
   .map((e) => scripts[+e - 1]);
 
-const port = prompt('Enter your local server port:');
-const browser = prompt('Enter the browser to use:');
+const port = prompt('Enter your local server port:', '3010');
+const browser = prompt('Enter the browser to use:', 'firefox');
 
 for (const target of targets) {
   const srcPath = path.join(src, target);
   const distPath = path.join(dist, target);
-  if (
-    !(await fs.exists(distPath)) ||
-    confirm(`File ${distPath} exists. Overwrite?`)
-  ) {
-    await mvMeta(srcPath, distPath, port);
-  }
+  await mvMeta(srcPath, distPath, port);
   openUrl(browser, distPath);
 }
