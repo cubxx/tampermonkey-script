@@ -1,12 +1,10 @@
 // ==UserScript==
 // @name        tm
-// @version     0.2
+// @version     latest
 // @author      cubxx
 // @match       *://*/*
 // @require     https://cdn.jsdelivr.net/gh/vanjs-org/van/public/van-1.5.5.nomodule.min.js
 // @require     https://cdn.jsdelivr.net/npm/vanjs-ext@0.6.3/dist/van-x.nomodule.min.js
-// @updateURL   /src/tm.user.js
-// @downloadURL /src/tm.user.js
 // @run-at      document-start
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%23bf0" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
@@ -354,6 +352,37 @@ const tm = (function () {
       },
       _getCtx(that) {
         return that instanceof Dom ? that.el : window.document;
+      },
+      /**
+       * @template {string} S
+       * @overload
+       * @param {S} selector
+       * @param {{ interval?: number; count?: number }} [options]
+       * @returns {Promise<Dom<Selector<S>>>}
+       */
+      async wait(selector, options) {
+        const opts = {
+          interval: 1e3,
+          count: 30,
+          ...options,
+        };
+        let count = 0;
+        /** @type {ConstructorParameters<typeof Promise<null | Dom>>[0]} */
+        const executor = (resolve) => {
+          window.setTimeout(() => {
+            try {
+              resolve($(selector));
+            } catch (e) {
+              resolve(null);
+              log.error('wait error:', e);
+            }
+          }, opts.interval);
+        };
+        while (true) {
+          const res = await new Promise(executor);
+          if (res) return res;
+          if (++count > opts.count) _.exit('wait timeout:', selector);
+        }
       },
     },
   );

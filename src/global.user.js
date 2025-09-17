@@ -1,10 +1,8 @@
 // ==UserScript==
 // @name        global
-// @version     0.2
+// @version     latest
 // @author      cubxx
 // @match       *://*/*
-// @updateURL   /src/global.user.js
-// @downloadURL /src/global.user.js
 // @icon        data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" fill="%230bf" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>
 // @grant       none
 // ==/UserScript==
@@ -499,7 +497,21 @@
     [
       'www.duolingo.com',
       async () => {
-        if (location.pathname.startsWith('/stories')) return;
+        if (location.pathname.startsWith('/stories')) {
+          // auto continue
+          const conti = await $.wait(
+            'button[data-test=stories-player-continue]',
+          );
+          conti.observe((ob) => conti.el.disabled || conti.el.click(), {
+            attributes: true,
+            attributeFilter: ['disabled'],
+          });
+          await $.wait('button[data-test=stories-player-done]', {
+            interval: 10e3,
+          });
+          window.close();
+        }
+        // auto select story
         /** @type {{ stories: { id: string; title: string }[] }} */
         const { stories } = await (
           await fetch(
@@ -519,8 +531,12 @@
         tm['FnBtns'].push({
           text: 'story',
           onclick() {
-            const story = stories[Math.floor(Math.random() * stories.length)];
-            window.open(`/stories/${story.id}?mode=read`, '_blank');
+            const goto = () => {
+              const story = stories[Math.floor(Math.random() * stories.length)];
+              window.open(`/stories/${story.id}?mode=read`);
+            };
+            const count = +(window.prompt('How many stories to goto?') ?? 2);
+            for (let i = 0; i < count; i++) goto();
           },
         });
       },
