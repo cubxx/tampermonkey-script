@@ -582,11 +582,11 @@ const tm = (function () {
           const el = dialog(
             {
               style: $.style({
-                padding: '20px',
+                border: '1px solid #fff3',
                 'border-radius': '8px',
-                border: 'none',
                 color: '#fff',
-                background: '#000a',
+                background: 'transparent',
+                'backdrop-filter': 'blur(3px)',
               }),
               onpointerup: (e) => (props.open = e.target !== el),
             },
@@ -616,7 +616,6 @@ const tm = (function () {
                     {
                       style: () =>
                         $.style({
-                          display: btn.hidden ? 'none' : '',
                           padding: '6px 12px',
                           'border-radius': '4px',
                           border: 'none',
@@ -625,6 +624,7 @@ const tm = (function () {
                           background: btn.color,
                         }),
                       onclick: btn.onclick,
+                      hidden: () => btn.hidden,
                     },
                     () => btn.text,
                   );
