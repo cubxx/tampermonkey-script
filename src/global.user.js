@@ -20,8 +20,8 @@
         const text = getSelection()?.toString();
         if (!text) return;
         navigator.clipboard.writeText(text).then(
-          () => ui.snackbar({ text: 'copy success', color: 'seagreen' }),
-          (err) => ui.snackbar({ text: 'copy failed', color: 'crimson' }),
+          () => log.info('copy success'),
+          (err) => log.error('copy failed', err),
         );
       },
     ],
@@ -39,11 +39,11 @@
             },
           },
         ];
-        tm['FnBtns'] = ui.dialog({
-          open: false,
-          buttons: tm['FnBtns'],
-        }).props.buttons;
-        return () => ui.dialog({ title: '', content: '' });
+        const { props } = ui.dialog({ open: false, buttons: tm['FnBtns'] });
+        return () => {
+          vanX.replace(props.buttons, () => tm['FnBtns']);
+          ui.dialog({ title: '', content: '' });
+        };
       })(),
     ],
   ];
@@ -135,7 +135,7 @@
   'use strict';
   const { $, $$, log, comm, matchURL, ui, _ } = tm;
   const clearSignal = 'tm:clearAIHistory';
-  /** @type {Record<string, () => Promise<unknown>>} */
+  /** @type {Record<string, () => Promise<any>>} */
   const urlTaskMap = {
     async 'https://chatgpt.com'() {
       const authorization =
@@ -288,10 +288,10 @@
       text: 'Clear AI History',
       color: 'cadetblue',
       onclick() {
-        vanX.replace(tm['FnBtns'], (l) =>
+        const { props } = ui.dialog({});
+        vanX.replace(props.buttons, (l) =>
           l.map((v) => ({ ...v, hidden: !v.hidden })),
         );
-        ui.dialog({});
       },
     },
     ...newBtns,
@@ -305,7 +305,6 @@
           url,
           async () => {
             if ((await comm.receive()).x !== clearSignal) return;
-            log('clear AI history start');
             task().then(
               (e) => log.info('clear AI history success', e),
               (e) => log.error('clear AI history failed', e),
@@ -497,20 +496,37 @@
     [
       'www.duolingo.com',
       async () => {
-        if (location.pathname.startsWith('/stories')) {
+        tm.onRouteChange(async () => {
+          if (location.search !== '?mode=LISTEN') return;
+
           // auto continue
-          const conti = await $.wait(
-            'button[data-test=stories-player-continue]',
-          );
-          conti.observe((ob) => conti.el.disabled || conti.el.click(), {
+          let btn = await Promise.any([
+            $.wait('button[data-test=story-start]', { count: 180 }),
+            $.wait('button[data-test=stories-player-continue]', { count: 180 }),
+          ]);
+          if (btn.el.dataset.test === 'story-start') {
+            log('find start');
+            await new Promise((r) => btn.on('click', r));
+            btn = await $.wait('button[data-test=stories-player-continue]');
+          }
+
+          log('find continue');
+          btn.el.click();
+          btn.observe((ob) => btn.el.disabled || btn.el.click(), {
             attributes: true,
             attributeFilter: ['disabled'],
           });
-          await $.wait('button[data-test=stories-player-done]', {
-            interval: 10e3,
-          });
-          window.close();
-        }
+
+          (await $.wait(':has(+ #bottom-spacer)')).observe(
+            async (ob) => {
+              log('done');
+              window.history.length === 1
+                ? window.close()
+                : window.history.back();
+            },
+            { childList: true },
+          );
+        });
         // auto select story
         /** @type {{ stories: { id: string; title: string }[] }} */
         const { stories } = await (
@@ -533,7 +549,7 @@
           onclick() {
             const goto = () => {
               const story = stories[Math.floor(Math.random() * stories.length)];
-              window.open(`/stories/${story.id}?mode=read`);
+              window.open(`/stories/${story.id}?mode=LISTEN`);
             };
             const count = +(window.prompt('How many stories to goto?') ?? 2);
             for (let i = 0; i < count; i++) goto();

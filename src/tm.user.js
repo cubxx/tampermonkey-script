@@ -110,9 +110,12 @@ const tm = (function () {
   const log = (function () {
     const console = { ...window.console };
     const color = '#bf0';
-    const handle =
+    const factory =
       (key) =>
-      (msg, ...e) =>
+      (msg, ...e) => {
+        key === 'error' && ui.snackbar({ text: msg, color: 'crimson' });
+        key === 'info' && ui.snackbar({ text: msg, color: 'seagreen' });
+        key === 'log' && ui.snackbar({ text: msg, color: 'steelblue' });
         console[key](
           `%c tm %c ${msg} %c`,
           $.style({
@@ -125,8 +128,9 @@ const tm = (function () {
           '',
           ...e,
         );
-    return new Proxy(/** @type {Console & Console['log']} */ (handle('log')), {
-      get: (o, p) => handle(p),
+      };
+    return new Proxy(/** @type {Console & Console['log']} */ (factory('log')), {
+      get: (o, p) => factory(p),
       set: () => false,
     });
   })();
@@ -539,7 +543,33 @@ const tm = (function () {
 
     const container = div({ id: 'tm-ui', style: 'margin: 0; padding: 0;' });
     const root = container.attachShadow({ mode: 'open' });
-    hack.injectCss(`* { transition: all 300ms ease }`, root);
+    hack.injectCss(
+      `* { ${$.style({
+        transition: '300ms',
+        'font-size': '16px',
+        'line-height': 1.5,
+        color: '#fff',
+      })} }
+
+      dialog { ${$.style({
+        border: '1px solid #fff3',
+        'border-radius': '8px',
+        padding: '20px 24px',
+        background: 'transparent',
+        'backdrop-filter': 'blur(3px)',
+      })} }
+      dialog::backdrop { background: #0008; }
+
+      button { ${$.style({
+        padding: '6px 12px',
+        'border-radius': '4px',
+        border: 'none',
+        cursor: 'pointer',
+        color: 'inherit',
+      })} }
+      button:hover { filter: brightness(1.2); }`,
+      root,
+    );
 
     /**
      * @type {<T extends LooseObject, U extends HTMLElement>(
@@ -585,18 +615,33 @@ const tm = (function () {
           const el = div({
             style: $.style({
               position: 'fixed',
+              'z-index': 99999,
+              bottom: '20px',
               left: '50%',
-              transform: 'translateX(-50%)',
-              'border-radius': '8px',
+              translate: '-50%',
               padding: '8px 14px',
+              'border-radius': '8px',
             }),
             textContent: () => props.text,
           });
-          van.derive(() => (el.style.bottom = props.open ? '20px' : '-35px'));
-          van.derive(() => (el.style.backgroundColor = props.color));
-          van.derive(() =>
-            window.setTimeout(() => (props.open = false), props.duration),
+          van.derive(
+            () => (el.style.transform = `translateY(${props.open ? 0 : 60}px)`),
           );
+          van.derive(() => (el.style.backgroundColor = props.color));
+
+          /** @type {number | null} */
+          let handle = null;
+          van.derive(() => {
+            if (!props.open) return;
+            if (handle) {
+              window.clearTimeout(handle);
+              handle = null;
+            }
+            handle = window.setTimeout(
+              () => (props.open = false),
+              props.duration,
+            );
+          });
           return el;
         },
         {
@@ -609,16 +654,7 @@ const tm = (function () {
       dialog: define(
         (props) => {
           const el = dialog(
-            {
-              style: $.style({
-                border: '1px solid #fff3',
-                'border-radius': '8px',
-                color: '#fff',
-                background: 'transparent',
-                'backdrop-filter': 'blur(3px)',
-              }),
-              onpointerup: (e) => (props.open = e.target !== el),
-            },
+            { onpointerup: (e) => (props.open = e.target !== el) },
             () =>
               props.title &&
               div(
@@ -640,20 +676,12 @@ const tm = (function () {
                 props.buttons,
                 ({ val: btn }) => {
                   // btn.hidden ??= false;
-                  btn.color ??= 'steelblue';
+                  btn.color ??= 'gray';
                   return button(
                     {
-                      style: () =>
-                        $.style({
-                          padding: '6px 12px',
-                          'border-radius': '4px',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: 'inherit',
-                          background: btn.color,
-                        }),
-                      onclick: btn.onclick,
                       hidden: () => btn.hidden,
+                      style: () => `background: ${btn.color}`,
+                      onclick: btn.onclick,
                     },
                     () => btn.text,
                   );
@@ -842,11 +870,12 @@ const tm = (function () {
       const url = location.href;
       for (const [str, fn] of map) {
         if (typeof str === 'string' ? url.includes(str) : str.test(url)) {
-          log.info('match url', str);
+          log.info('match: ' + str);
           fn();
         }
       }
     },
+    /** Add and run route change listener */
     onRouteChange: (function () {
       const queue = [];
       const trigger = () => queue.forEach((cb) => cb());
@@ -858,7 +887,10 @@ const tm = (function () {
         },
       }));
       /** @param {() => void} cb */
-      return (cb) => queue.push(cb);
+      return (cb) => {
+        cb();
+        queue.push(cb);
+      };
     })(),
     /** @param {string} name @param {string[]} selectors @returns remove handler */
     rmAD(name, selectors) {
@@ -872,7 +904,6 @@ const tm = (function () {
         return len;
       };
       tm.rmAD[name] = rm;
-      rm();
       tm.onRouteChange(rm);
       requestIdleCallback(rm);
       document.addEventListener('DOMContentLoaded', rm);
