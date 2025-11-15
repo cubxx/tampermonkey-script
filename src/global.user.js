@@ -55,8 +55,8 @@
   $(document).on(
     'keydown',
     (e) => {
-      for (const [is, fn] of listeners)
-        if (is(e)) return (e.stopImmediatePropagation(), fn());
+      for (const [cond, fn] of listeners)
+        if (cond(e)) return (e.stopImmediatePropagation(), fn());
     },
     true,
   );
@@ -67,39 +67,14 @@
   'use strict';
   if (self != top) return;
 
-  tm.rmAD('global', [
-    '.adsbygoogle', //google
-    '.pb-ad', //google
-    '.google-auto-placed', //google
-    '.ap_container', //google
-    '.ad', //google
-    '.b_ad', //bing
-    '.Pc-card', //zhihu-首页
-    '.Pc-Business-Card-PcTopFeedBanner', //zhihu-首页
-    '.Pc-word', //zhihu-问题
-    '.jjjjasdasd', //halihali
-    '.Ads', //nico
-    '.ads', //nico
-    '.baxia-dialog', //amap
-    '.sufei-dialog', //amap
-    '.app-download-panel', //amap
-    '#player-ads', //ytb
-    '#masthead-ad', //ytb
-    'ytd-ad-slot-renderer', //ytb
-    '#google_esf', //google
-    'li[data-layout=ad]', //duck
-    'img[alt=AD]', //acgbox
-    'div[id="1280_adv"]',
-    '.c-ad', //nature
-    '.wwads-container', //vitepress
-    '.VPDocAsideCarbonAds', //vitepress
-    '.carbonads-responsive',
-    '.cpc-ad',
-    '[id^=google_ads]',
-    'iframe[src*="googleads"]',
-    'iframe[src*="app.moegirl"]',
-    'iframe[src*="ads.nicovideo.jp"]',
-  ]);
+  tm.router(
+    tm._.mapValues(
+      {
+        'heroicons.dev': ['#root > aside.sidebar-2 > div'],
+      },
+      (selectors, host) => () => tm.ad('local', ...selectors),
+    ),
+  );
 });
 
 /** Auto skip */
@@ -138,11 +113,11 @@
 /** Clear AI history */
 (function () {
   'use strict';
-  const { $, $$, log, comm, matchURL, ui, _ } = tm;
+  const { $, $$, log, comm, router: matchURL, ui, _ } = tm;
   const clearSignal = 'tm:clearAIHistory';
   /** @type {Record<string, () => Promise<any>>} */
   const urlTaskMap = {
-    async 'https://chatgpt.com'() {
+    async 'chatgpt.com'() {
       const authorization =
         'Bearer ' +
         window['__reactRouterContext'].state.loaderData.root.clientBootstrap
@@ -164,7 +139,7 @@
         ),
       );
     },
-    async 'https://chat.deepseek.com'() {
+    async 'chat.deepseek.com'() {
       const authorization =
         'Bearer ' + JSON.parse(localStorage.getItem('userToken') ?? '').value;
       const {
@@ -190,7 +165,7 @@
         ),
       );
     },
-    async 'https://www.kimi.com'() {
+    async 'www.kimi.com'() {
       const authorization = 'Bearer ' + localStorage.getItem('access_token');
       const { items } = await (
         await fetch('/api/chat/list', {
@@ -210,47 +185,46 @@
         ),
       );
     },
-    async 'https://chatglm.cn'() {
-      const token = document.cookie.match(
-        new RegExp('(^|;\\s*)(chatglm_token)=([^;]*)'),
-      )?.[3];
-      if (!token) return console.error('token not found');
-      const authorization = 'Bearer ' + decodeURIComponent(token);
-      const {
-        result: { results },
-      } = await (
-        await fetch('/chatglm/backend-api/assistant/search_log_history', {
-          method: 'POST',
-          headers: { authorization, 'content-type': 'application/json' },
-          body: JSON.stringify({
-            get_all_history: true,
-            page_num: 1,
-            page_size: 1e4,
-          }),
-        })
-      ).json();
-      await Promise.all(
-        results.map(
-          async ({ assistant_id, conversation_id }) =>
-            await (
-              await fetch(
-                '/chatglm/backend-api/assistant/conversation/delete',
-                {
-                  method: 'POST',
-                  headers: {
-                    authorization,
-                    'content-type': 'application/json',
-                  },
-                  body: JSON.stringify({ assistant_id, conversation_id }),
-                },
-              )
-            ).json(),
-        ),
-      );
-    },
-    async 'https://metaso.cn'() {
+    //    async 'chatglm.cn'() {
+    //      const token = document.cookie.match(
+    //        new RegExp('(^|;\\s*)(chatglm_token)=([^;]*)'),
+    //      )?.[3];
+    //      if (!token) return console.error('token not found');
+    //      const authorization = 'Bearer ' + decodeURIComponent(token);
+    //      const {
+    //        result: { results },
+    //      } = await (
+    //        await fetch('/chatglm/backend-api/assistant/search_log_history', {
+    //          method: 'POST',
+    //          headers: { authorization, 'content-type': 'application/json' },
+    //          body: JSON.stringify({
+    //            get_all_history: true,
+    //            page_num: 1,
+    //            page_size: 1e4,
+    //          }),
+    //        })
+    //      ).json();
+    //      await Promise.all(
+    //        results.map(
+    //          async ({ assistant_id, conversation_id }) =>
+    //            await (
+    //              await fetch(
+    //                '/chatglm/backend-api/assistant/conversation/delete',
+    //                {
+    //                  method: 'POST',
+    //                  headers: {
+    //                    authorization,
+    //                    'content-type': 'application/json',
+    //                  },
+    //                  body: JSON.stringify({ assistant_id, conversation_id }),
+    //                },
+    //              )
+    //            ).json(),
+    //        ),
+    //      );
+    //    },
+    async 'metaso.cn'() {
       localStorage.removeItem('data-store');
-      const token = '';
       const {
         data: { content },
       } = await (
@@ -265,7 +239,7 @@
         ),
       );
     },
-    async 'https://grok.com'() {
+    async 'grok.com'() {
       const { conversations } = await (
         await fetch('/rest/app-chat/conversations?pageSize=100')
       ).json();
@@ -276,6 +250,16 @@
               method: 'DELETE',
             })
           ).json(),
+        ),
+      );
+    },
+    async 'chat.qwen.ai'() {
+      const { data } = await (
+        await fetch('/api/v2/chats', { headers: {} })
+      ).json();
+      return Promise.all(
+        data.map(async ({ id }) =>
+          (await fetch(`/api/v2/chats/${id}`, { method: 'DELETE' })).json(),
         ),
       );
     },
@@ -303,46 +287,40 @@
   );
 
   matchURL(
-    ..._.map(
-      urlTaskMap,
-      (task, url) =>
-        /** @type {[String, () => void]} */ ([
-          url,
-          async () => {
-            if ((await comm.receive()).x !== clearSignal) return;
-            task().then(
-              (e) => log.info('clear AI history success', e),
-              (e) => log.error('clear AI history failed', e),
-            );
-          },
-        ]),
-    ),
+    _.mapValues(urlTaskMap, (task, url) => async () => {
+      if ((await comm.receive()).x !== clearSignal) return;
+      await task().then(
+        (e) => log.info('clear AI history success', e),
+        (e) => log.error('clear AI history failed', e),
+      );
+    }),
   );
 })();
 
-/** Different site task */
+/** Route */
 (function () {
   'use strict';
   if (self != top) return;
   const { $, $$, ui, log, _ } = tm;
 
-  tm.matchURL(
-    [
-      'bing.com',
-      () => {
-        const url = new URL(location.href);
-        if (url.pathname === '/ck/a') return;
-        const search = url.searchParams;
-        if (search.get('cc') === 'us' && search.get('mkt') === null) return;
-        search.set('cc', 'us');
-        search.delete('mkt');
-        location.search = search + '';
+  tm.router({
+    'www.zhihu.com': {
+      ''() {
+        tm['FnBtns'].push({
+          text: 'Clear Inbox',
+          onclick: async () => {
+            const { data } = await fetch('/api/v4/inbox').then((e) => e.json());
+            await Promise.allSettled(
+              data.map(({ participant: { id } }) =>
+                fetch(`https://www.zhihu.com/api/v4/chat?sender_id=${id}`, {
+                  method: 'delete',
+                }).then((e) => e.json()),
+              ),
+            );
+          },
+        });
       },
-    ],
-
-    [
-      /www.zhihu.com\/(follow)?$/,
-      () => {
+      follow() {
         $('#TopstoryContent')?.on('click', (e) => {
           const target = /** @type {HTMLElement} */ (e.target);
           if (target.classList[1] != 'ContentItem-more') return;
@@ -368,29 +346,7 @@
           );
         });
       },
-    ],
-
-    [
-      'zhihu.com',
-      () => {
-        tm['FnBtns'].push({
-          text: 'Clear Inbox',
-          onclick: async () => {
-            const { data } = await fetch('/api/v4/inbox').then((e) => e.json());
-            await Promise.allSettled(
-              data.map(({ participant: { id } }) =>
-                fetch(`https://www.zhihu.com/api/v4/chat?sender_id=${id}`, {
-                  method: 'delete',
-                }).then((e) => e.json()),
-              ),
-            );
-          },
-        });
-      },
-    ],
-    [
-      'www.zhihu.com/question',
-      () => {
+      question() {
         $('.App-main .QuestionHeader-title')?.set({
           title: `Create on ${
             $('meta[itemprop=dateCreated]')?.el.content
@@ -398,119 +354,54 @@
         });
         $('header')?.hide();
       },
-    ],
-    [
-      'zhuanlan.zhihu.com/p',
-      () => {
+      p() {
         $('.ContentItem-time')?.mount('article', '.Post-RichTextContainer');
       },
-    ],
+    },
 
-    [
-      'heroicons.dev',
-      () => {
-        $('#root > aside.sidebar-2 > div')?.hide();
-      },
-    ],
-    [
-      'www.pixiv.net/artworks',
-      () => {
-        function delADs() {
-          $$('iframe').forEach((e) => e.hide());
-        }
-        // delADs();
-        $('body')?.observe(delADs, { childList: true });
-      },
-    ],
-    [
-      'www.acgbox.link',
-      () => {
-        $$('a.card').map((e) => {
-          e.set({ href: e.el.dataset.url });
-        });
-      },
-    ],
-    [
-      'nature.com',
-      () => {
-        ['c-hero__link', 'c-card__link', 'u-faux-block-link'].map((c) =>
-          $$(`a.${c}`).map((e) => {
-            e.el.classList.remove(c);
-            e.el.classList.add('u-link-inherit');
-          }),
-        );
-      },
-    ],
-    [
-      'x.com',
-      () => {
-        $(document.body).observe(
-          (ob) => {
-            const root = $(':has(>div[data-testid="cellInnerDiv"])');
-            if (!root) return;
-            root.observe(
-              tm.rmAD('x', [
-                'div[data-testid="cellInnerDiv"]:has(article div[id]>.r-1awozwy>svg)',
-              ]),
-              { childList: true },
-            );
-            ob.disconnect();
-          },
-          { childList: true, subtree: true },
-        );
-      },
-    ],
-    [
-      /github.(com|io)/,
-      () => {
-        const url = new URL(location.href);
-        function repo2page() {
-          if (url.host !== 'github.com') return;
-          const [_, usr, rep] = url.pathname.split('/');
-          return `https://${usr}.github.io/${rep ?? ''}`;
-        }
-        function page2repo() {
-          if (!url.host.endsWith('.github.io')) return;
-          const usr = url.host.replace('.github.io', '');
-          const [_, rep] = url.pathname.split('/');
-          return `https://github.com/${usr}/${rep ?? ''}`;
-        }
-        tm['FnBtns'].push(
-          {
-            text: 'Repo / Page',
-            onclick() {
-              repo2page() && window.open(repo2page());
-              page2repo() && window.open(page2repo());
-            },
-          },
-          {
-            text: 'Stargazers',
-            onclick() {
-              window.open(`${page2repo() ?? location.href}/stargazers`);
-            },
-          },
-        );
-      },
-    ],
-    [
-      /pptr.dev/,
-      () => {
-        document.body.style.setProperty('--doc-sidebar-width', '15rem');
-      },
-    ],
-    [
-      'www.duolingo.com',
-      async () => {
-        tm.onRouteChange(async () => {
-          if (location.hash !== '#auto') {
-            if (location.pathname.startsWith('/lesson')) location.hash = 'auto';
-            return;
-          }
+    'www.acgbox.link'() {
+      $$('a.card').map((e) => {
+        e.set({ href: e.el.dataset.url });
+      });
+    },
 
+    'nature.com'() {
+      ['c-hero__link', 'c-card__link', 'u-faux-block-link'].map((c) =>
+        $$(`a.${c}`).map((e) => {
+          e.el.classList.remove(c);
+          e.el.classList.add('u-link-inherit');
+        }),
+      );
+    },
+
+    'github.com'() {
+      tm['FnBtns'].push(
+        {
+          text: 'Page',
+          onclick() {
+            const matches = location.pathname.match(/^\/(.+)\/(.+)/);
+            if (!matches) return;
+            return `https://${matches[1]}.github.io/${matches[2]}`;
+          },
+        },
+        {
+          text: 'Stars',
+          onclick() {
+            window.open(`${location.href}/stargazers`);
+          },
+        },
+      );
+    },
+
+    'www.duolingo.com': {
+      async ''() {
+        if (location.hash === '#auto') {
           // auto continue
           let btn = await Promise.any([
             $.wait('button[data-test=story-start]', { count: 180 }),
-            $.wait('button[data-test=stories-player-continue]', { count: 180 }),
+            $.wait('button[data-test=stories-player-continue]', {
+              count: 180,
+            }),
           ]);
           if (btn.el.dataset.test === 'story-start') {
             log('find start');
@@ -539,7 +430,8 @@
             },
             { childList: true },
           );
-        });
+        }
+
         // auto select story
         /** @type {Set<string>} */
         let stories = new Set(
@@ -563,7 +455,7 @@
                         }),
                       {
                         headers: {
-                          Authorization: `Bearer ${(await cookieStore.get('jwt_token'))?.value}`,
+                          Authorization: `Bearer ${(await window.cookieStore.get('jwt_token'))?.value}`,
                         },
                       },
                     )
@@ -578,13 +470,17 @@
             };
             const count = 1; //+(window.prompt('How many stories to goto?') ?? 0);
             for (let i = 0; i < count; i++) goto();
+            this.parentElement.parentElement.close();
           },
         });
       },
-    ],
-    [
-      'www.youtube.com/watch',
-      async () => {
+      lesson() {
+        location.hash === '#auto';
+      },
+    },
+
+    'www.youtube.com': {
+      async watch() {
         const flexy = await $.wait('ytd-watch-flexy');
 
         // change cover size mode
@@ -603,6 +499,6 @@
               11,
         );
       },
-    ],
-  );
+    },
+  });
 })();

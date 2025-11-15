@@ -208,22 +208,6 @@ const tm = (function () {
         },
       }));
     },
-    /** @see https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API */
-    trustedTypes(name = 'tm-policy') {
-      const { trustedTypes } = window;
-      if (!trustedTypes) return;
-      const policy = trustedTypes.createPolicy(name, {
-        createHTML: (e) => e,
-      });
-      const cvt = ({ set }) => ({
-        set(v) {
-          //@ts-ignore
-          set.call(this, policy.createHTML(v));
-        },
-      });
-      hack.override(Element.prototype, 'innerHTML', cvt);
-      hack.override(ShadowRoot.prototype, 'innerHTML', cvt);
-    },
     openShadowRoot() {
       hack.override(Element.prototype, 'attachShadow', ({ value }) => ({
         value(e) {
@@ -864,15 +848,26 @@ const tm = (function () {
       const code = await res.text();
       return new Function(code)();
     },
-    /** @param {[match: RegExp | string, fn: () => void][]} map */
-    matchURL(...map) {
-      const url = location.href;
-      for (const [str, fn] of map) {
-        if (typeof str === 'string' ? url.includes(str) : str.test(url)) {
-          log.info('match: ' + str);
-          fn();
-        }
-      }
+    /** @param {RouteMap} map */
+    router(map) {
+      const host = location.host;
+      const paths =
+        location.pathname === '/' ? [''] : location.pathname.split('/');
+      const match =
+        /** @param {RouteMap[string]} mapOrFn */
+        (mapOrFn, index = 0) => {
+          if (typeof mapOrFn === 'function') {
+            log.info(
+              'match: ' + [host, ...paths.slice(0, index)].join('/'),
+              mapOrFn,
+            );
+            mapOrFn();
+            return;
+          }
+          if (index >= paths.length) return;
+          match(mapOrFn[paths[index]], ++index);
+        };
+      tm.onRouteChange(() => match(map[host]));
     },
     /** Add and run route change listener */
     onRouteChange: (function () {
@@ -891,18 +886,18 @@ const tm = (function () {
         queue.push(cb);
       };
     })(),
-    /** @param {string} name @param {string[]} selectors @returns remove handler */
-    rmAD(name, selectors) {
+    /** @param {string} ns @param {string[]} selectors @returns remove handler */
+    ad(ns, ...selectors) {
       const rm = () => {
         const ads = selectors
           .flatMap($$)
           .filter((ad) => ad.el.style.display !== 'none' && (ad.hide(), true))
           .map((e) => e.el);
         const len = ads.length;
-        len && log(`rmAD: ${name}`, ads);
+        len && log(`ads: ${ns}`, ads);
         return len;
       };
-      tm.rmAD[name] = rm;
+      tm.ad[ns] = rm;
       tm.onRouteChange(rm);
       requestIdleCallback(rm);
       document.addEventListener('DOMContentLoaded', rm);

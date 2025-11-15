@@ -28,4 +28,5 @@ declare global {
     T extends string,
     E = StrictlyParseSelector<T>,
   > = E extends HTMLElement ? E : HTMLElement;
+  type RouteMap = { [key: string]: RouteMap | (() => void) };
 }
