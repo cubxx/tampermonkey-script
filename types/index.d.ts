@@ -1,5 +1,9 @@
 declare const van: typeof import('./van-1.6.0').default;
 declare const vanX: typeof import('./van-x-0.6.3');
+interface HTMLMediaElement {
+  captureStream(): MediaStream;
+  mozCaptureStream(): MediaStream;
+}
 
 // tools
 type Merge<T, U> = Omit<T, keyof U> & U;

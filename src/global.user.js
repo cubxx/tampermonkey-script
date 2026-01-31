@@ -27,24 +27,11 @@
     ],
     [
       (e) => e.ctrlKey && e.key === '`',
-      (function FnPanel() {
-        tm['FnBtns'] =
-          /**
-           * @type {NonNullable<
-           *   Parameters<typeof ui.dialog>[0]['buttons']
-           * >}
-           */
-          ([
-            {
-              text: 'Design Mode',
-              color: 'seagreen',
-              onclick() {
-                tool.toggle(document, 'designMode', ['on', 'off']);
-                tool.toggle(this.style, 'opacity', ['0.5', '1']);
-              },
-            },
-          ]);
-        const { props } = ui.dialog({ open: false, buttons: tm['FnBtns'] });
+      (() => {
+        const { props } = ui.dialog({
+          open: false,
+          buttons: (tm['FnBtns'] = []),
+        });
         return () => {
           vanX.replace(props.buttons, () => tm['FnBtns']);
           ui.dialog({ title: '', content: '' });
@@ -257,6 +244,51 @@
     },
     ...btns,
   );
+})();
+
+/** Media Recorder */
+(() => {
+  const { $, tool } = tm;
+
+  /** @param {HTMLMediaElement} el */
+  const createRecorder = (el) => {
+    const stream = (el.captureStream ?? el.mozCaptureStream).call(el);
+    const recorder = new MediaRecorder(stream);
+
+    const chunks = /** @type {Blob[]} */ ([]);
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = () => {
+      const url = URL.createObjectURL(new Blob(chunks));
+      const el = van.tags.a({
+        href: url,
+        download: `record-${Date.now()}.webm`,
+      });
+      el.click();
+      el.remove();
+      URL.revokeObjectURL(url);
+      chunks.length = 0;
+    };
+    return recorder;
+  };
+
+  /** @type {MediaRecorder | null} */
+  let recorder = null;
+  tm['FnBtns'].push({
+    text: 'Recorder',
+    color: 'seagreen',
+    async onclick() {
+      if (recorder) {
+        recorder.stop();
+        recorder = null;
+      } else {
+        const el = $('video');
+        if (!el) return tool.throw(`not found: video`);
+        recorder = createRecorder(el);
+        recorder.start();
+      }
+      tool.toggle(this, 'textContent', ['Recording', 'Recorder']);
+    },
+  });
 })();
 
 /** Route */

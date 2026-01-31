@@ -154,12 +154,21 @@ const tm = (() => {
      * @param {(descriptor: Merge<PropertyDescriptor, D>) => Partial<D>} convert
      */
     override(obj, key, convert) {
-      const d = Object.getOwnPropertyDescriptor(obj, key) ??
-        log(`can't find own key: ${key.toString()}, will add a new one`) ?? {
+      const d =
+        Object.getOwnPropertyDescriptor(obj, key) ??
+        (log(`can't find own property "${key.toString()}", will add a new one`),
+        {
+          get() {
+            return obj[key];
+          },
+          set(v) {
+            obj[key] = v;
+          },
+          value: obj[key],
           configurable: true,
-        };
+        });
       if (!d.configurable)
-        throw tool.throw(`${key.toString()} is not configurable`);
+        return tool.throw(`${key.toString()} is not configurable`);
       //@ts-ignore
       Object.defineProperty(obj, key, Object.assign({}, d, convert(d)));
     },
