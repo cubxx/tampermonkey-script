@@ -136,7 +136,7 @@ const tm = (() => {
         );
       };
     return new Proxy(/** @type {Console & Console['log']} */ (factory('log')), {
-      get: (o, p) => factory(p),
+      get: (_, p) => factory(p),
       set: () => false,
     });
   })();
@@ -157,16 +157,7 @@ const tm = (() => {
       const d =
         Object.getOwnPropertyDescriptor(obj, key) ??
         (log(`can't find own property "${key.toString()}", will add a new one`),
-        {
-          get() {
-            return obj[key];
-          },
-          set(v) {
-            obj[key] = v;
-          },
-          value: obj[key],
-          configurable: true,
-        });
+        {});
       if (!d.configurable)
         return tool.throw(`${key.toString()} is not configurable`);
       //@ts-ignore
@@ -598,6 +589,7 @@ const tm = (() => {
   };
   const tm = /** @type {const} */ ({
     [Symbol.toStringTag]: 'tm',
+    proxy: 'https://127.0.0.1/crawl/api/proxy/',
     ...{ tool, log, hack, $, $$, ui, comm },
     /** @param {string} url */
     async import(url) {

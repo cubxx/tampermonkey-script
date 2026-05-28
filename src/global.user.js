@@ -10,7 +10,24 @@
 /** Features */
 (function () {
   'use strict';
-  const { $, $$, log, ui, tool } = tm;
+  const { log, ui, tool } = tm;
+
+  const openFnPanel = (() => {
+    const { props } = ui.dialog({
+      open: false,
+      buttons: (tm['FnBtns'] = []),
+    });
+    return () => {
+      vanX.replace(props.buttons, () => tm['FnBtns']);
+      ui.dialog({ title: '', content: '' });
+    };
+  })();
+
+  if (/Mobi/i.test(navigator.userAgent)) {
+    document.addEventListener('dblclick', () => openFnPanel());
+    return;
+  }
+
   /** @type {[(e: KeyboardEvent) => boolean, () => void][]} */
   const listeners = [
     [
@@ -25,19 +42,7 @@
         );
       },
     ],
-    [
-      (e) => e.ctrlKey && e.key === '`',
-      (() => {
-        const { props } = ui.dialog({
-          open: false,
-          buttons: (tm['FnBtns'] = []),
-        });
-        return () => {
-          vanX.replace(props.buttons, () => tm['FnBtns']);
-          ui.dialog({ title: '', content: '' });
-        };
-      })(),
-    ],
+    [(e) => e.ctrlKey && e.key === '`', openFnPanel],
   ];
   document.addEventListener(
     'keydown',
@@ -71,6 +76,9 @@
     'docs.qq.com/scenario/link.html': (sp) => sp.get('url'),
     'afdian.com/link': null,
     'mail.qq.com/cgi-bin/readtemplate': (sp) => sp.get('gourl'),
+    'weixin110.qq.com/cgi-bin/mmspamsupport-bin/newredirectconfirmcgi': () =>
+      tm.$('p')?.textContent ?? '/',
+    'www.google.com/url': (sp) => sp.get('q'),
   };
   for (let path in arr) {
     if (location.href.includes(path)) {
@@ -85,7 +93,7 @@
 /** Clear AI history */
 (function () {
   'use strict';
-  const { $, $$, log, comm, ui, tool } = tm;
+  const { log, ui, tool } = tm;
 
   /** @satisfies {Record<string, () => Promise<any>>} */
   const hostTasks = {
@@ -182,54 +190,112 @@
     //        ),
     //      );
     //    },
-    async 'metaso.cn'() {
-      localStorage.removeItem('data-store');
-      const {
-        data: { content },
-      } = await (
-        await fetch('/api/search-history?pageIndex=0&pageSize=100')
-      ).json();
-      await Promise.all(
-        content.map(
-          async ({ id }) =>
-            await (
-              await fetch(`/api/session/${id}`, { method: 'DELETE' })
-            ).json(),
-        ),
-      );
-    },
+    // async 'metaso.cn'() {
+    //   localStorage.removeItem('data-store');
+    //   const {
+    //     data: { content },
+    //   } = await (
+    //     await fetch('/api/search-history?pageIndex=0&pageSize=100')
+    //   ).json();
+    //   await Promise.all(
+    //     content.map(
+    //       async ({ id }) =>
+    //         await (
+    //           await fetch(`/api/session/${id}`, { method: 'DELETE' })
+    //         ).json(),
+    //     ),
+    //   );
+    // },
     async 'grok.com'() {
       await (
         await fetch(`/rest/app-chat/conversations`, { method: 'DELETE' })
       ).json();
     },
-    async 'chat.qwen.ai'() {
-      const { success } = await (
-        await fetch(`/api/v2/chats`, { method: 'DELETE' })
+    // async 'chat.qwen.ai'() {
+    //   const { success } = await (
+    //     await fetch(`/api/v2/chats`, { method: 'DELETE' })
+    //   ).json();
+    //   if (!success) tool.throw('request failed');
+    // },
+    async 'www.perplexity.ai'() {
+      const { status } = await (
+        await fetch(
+          '/rest/thread/delete_all_threads?version=2.18&source=default',
+          {
+            method: 'DELETE',
+            headers: { 'content-type': 'application/json' },
+            body: '{"delete_all":true}',
+          },
+        )
       ).json();
-      if (!success) tool.throw('request failed');
+      if (status !== 'success') throw Error(`status is ${status}`);
     },
+    async 'www.doubao.com'() {
+      const {
+        downlink_body: {
+          pull_recent_conv_chain_downlink_body: { cells },
+        },
+      } = await (
+        await fetch('/im/chain/recent_conv?aid=497858', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json; encoding=utf-8' },
+          body: JSON.stringify({
+            cmd: 3200,
+            uplink_body: {
+              pull_recent_conv_chain_uplink_body: {
+                api_version: 1,
+                limit: 1e2,
+              },
+            },
+          }),
+        })
+      ).json();
+
+      const res = await (
+        await fetch('/im/conversation/batch_del_user_conv?aid=497858', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json; encoding=utf-8' },
+          body: JSON.stringify({
+            cmd: 4171,
+            uplink_body: {
+              batch_delete_user_conversation_uplink_body: {
+                conversation_id: cells.map((e) => e.id),
+                delete_all: true,
+              },
+            },
+          }),
+        })
+      ).json();
+      if (res.status_code !== 0)
+        throw Error('response status_code: ' + res.status_code);
+    },
+    async 'aistudio.google.com'() {},
+    async 'consensus.app'() {},
   };
 
   const clearKey = 'clearAIHistory';
   tm.router(
     'clear ai history',
-    tool.mapValues(hostTasks, (task) => async () => {
+    tool.mapValues(hostTasks, (task) => () => {
       tm[clearKey] = () =>
         task().then(
           (e) => log.info('clear AI history success', e),
           (e) => log.error('clear AI history failed', e),
         );
-      if ((await comm.receive()).clearKey === clearKey) tm[clearKey]();
+      if (location.hash.slice(1) === clearKey) tm[clearKey]();
     }),
   );
 
-  const btns = tool.map(hostTasks, (task, host) => ({
+  const btns = tool.map(hostTasks, (_, host) => ({
     text: host.split('.').at(-2) ?? host,
     hidden: true,
     ...(location.host === host
       ? { onclick: tm[clearKey], color: 'steelblue' }
-      : { onclick: () => comm.send(`https://${host}`, { clearKey }) }),
+      : {
+          onclick() {
+            open(`https://${host}#${clearKey}`);
+          },
+        }),
   }));
   tm['FnBtns'].push(
     {
@@ -248,6 +314,7 @@
 
 /** Media Recorder */
 (() => {
+  'use strict';
   const { $, tool } = tm;
 
   /** @param {HTMLMediaElement} el */
@@ -291,11 +358,65 @@
   });
 })();
 
+/** Translate */
+(() => {
+  'use strict';
+  const { log, ui, tool } = tm;
+
+  const translate = /** @param {string} orig */ async (orig) => {
+    const q = encodeURIComponent(orig);
+    // audio
+    fetch(
+      tm.proxy +
+        `https://translate.google.com/translate_tts?ie=UTF-8&q=${q}&tl=en&client=tw-ob`,
+      { method: 'post' },
+    )
+      .then((res) => res.blob())
+      .then(
+        async (blob) => {
+          const url = URL.createObjectURL(blob);
+          await new Audio(url).play();
+          URL.revokeObjectURL(url);
+        },
+        (err) => log.error('Google TTS Error', err),
+      );
+    // translate
+    fetch(
+      tm.proxy +
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&dt=bd&q=${q}`,
+      { method: 'post' },
+    )
+      .then((res) => res.json())
+      .then(
+        (data) => {
+          const trans =
+            data[0][0][0] +
+            (data[1]?.reduce(
+              (acc, [part, words]) => `${acc}\n${part}. ${words.join(', ')}`,
+              '',
+            ) ?? '');
+          ui.snackbar({ text: trans, color: 'steelblue' });
+        },
+        (err) => log.error('Google Translator Error', err),
+      );
+  };
+  // trigger
+  let selected = '';
+  document.addEventListener('selectionchange', () => {
+    selected = window.getSelection()?.toString().trim() ?? '';
+  });
+  document.addEventListener('mouseup', async () => {
+    if (!selected) return;
+    log.info('selected', selected);
+    translate(selected).finally(() => (selected = ''));
+  });
+})();
+
 /** Route */
-(function () {
+(() => {
   'use strict';
   if (self != top) return;
-  const { $, $$, ui, log, tool, hack } = tm;
+  const { $, $$, log, tool, hack } = tm;
 
   tm.router('global', {
     'www.zhihu.com': {
@@ -352,14 +473,19 @@
 
     'www.youtube.com': {
       async watch() {
+        // shortcut
+        /** @type {Record<string, number>} */
+        const speeds = { '!': 1, '@': 2 };
+        document.addEventListener('keydown', async (e) => {
+          if (!e.shiftKey) return;
+          const speed = speeds[e.key];
+          if (speed) (await $.wait('video')).playbackRate = speed;
+        });
+
         // change cover
         const cover = await $.wait('div.ytp-cued-thumbnail-overlay-image');
         cover.style.background =
           cover.style.backgroundImage + ' top / contain no-repeat';
-
-        // auto subtitles
-        const btn = await $.wait('button.ytp-subtitles-button');
-        btn.ariaPressed === 'false' && btn.click();
 
         // more height
         const changeHeight = () => {
@@ -372,65 +498,61 @@
           if (!container) return tool.throw('player container not found');
           container.style.paddingTop = `calc(var(--ytd-watch-flexy-height-ratio)/var(--ytd-watch-flexy-width-ratio)*100% + ${extraHeight}px)`;
         };
-        $.observe(
-          await $.wait('div.ytp-caption-window-container'),
-          changeHeight,
-          { childList: true },
-        );
+        const caption_el = $('div.ytp-caption-window-container');
+        if (caption_el)
+          $.observe(caption_el, changeHeight, { childList: true });
 
-        // shortcut
-        /** @type {Record<string, number>} */
-        const speeds = { '!': 1, '@': 2 };
-        document.addEventListener('keydown', async (e) => {
-          if (!e.shiftKey) return;
-          const speed = speeds[e.key];
-          if (speed) (await $.wait('video')).playbackRate = speed;
-        });
+        // auto subtitles
+        const btn = await $.wait('button.ytp-subtitles-button');
+        btn.ariaPressed === 'false' && btn.click();
 
         // dual subtitles
         const opts = { lang: 'zh-Hans', min: 30 };
         const pure = (text) => text.trim().replaceAll('\n', ' ');
-        hack.onXHR(void 0, (_, xhr) => {
+        hack.onXHR(void 0, (_, orig_xhr) => {
           if (location.pathname !== '/watch') return;
-          const url = xhr.responseURL;
+          const url = orig_xhr.responseURL;
           if (
             !url.includes('/api/timedtext') ||
             url.includes('&tlang') ||
             url.includes('&lang=' + opts.lang) ||
-            !xhr.responseText
+            !orig_xhr.responseText
           )
             return;
-          log('get subtitle', url);
 
-          const original = JSON.parse(xhr.responseText);
-          if (!original) return;
-          if (original.events == null)
-            tool.throw('subtitle response invalid', original);
-
-          const xhr2 = new XMLHttpRequest();
-          xhr2.open('GET', url + `&tlang=` + opts.lang, false);
-          xhr2.send();
-          if (xhr2.status !== 200)
+          if (orig_xhr.status !== 200)
             tool.throw(
-              `fetch subtitle failed: ${xhr2.status} ${xhr2.statusText}`,
+              `failed to fetch orig subtitle: ${orig_xhr.status} ${orig_xhr.statusText}`,
             );
-          const translated = JSON.parse(xhr2.responseText);
+          const orig_sub = JSON.parse(orig_xhr.responseText);
+          if (!orig_sub) return;
+          if (orig_sub.events == null)
+            tool.throw('subtitle response invalid', orig_sub);
+
+          const trans_xhr = new XMLHttpRequest();
+          trans_xhr.open('GET', url + `&tlang=` + opts.lang, false);
+          trans_xhr.send();
+          if (trans_xhr.status !== 200)
+            tool.throw(
+              `failed to fetch trans subtitle: ${trans_xhr.status} ${trans_xhr.statusText}`,
+            );
+          const trans_sub = JSON.parse(trans_xhr.responseText);
 
           // Modify original subtitles to include translated subtitles
-          const isAutoGeneratedSub = original.events.some(
-            (orig) => orig.segs && orig.segs.length > 1,
+          const isAutoGeneratedSub = orig_sub.events.some(
+            (e) => e.segs && e.segs.length > 1,
           );
           if (!isAutoGeneratedSub) {
-            for (let i = 0, len = original.events.length; i < len; i++) {
-              const orig = original.events[i];
+            for (let i = 0, len = orig_sub.events.length; i < len; i++) {
+              const orig = orig_sub.events[i];
               if (!orig.segs) continue;
-              const trans = translated.events[i];
+              const trans = trans_sub.events[i];
               orig.segs[0].utf8 =
                 pure(orig.segs[0].utf8) + '\n' + pure(trans.segs[0].utf8);
             }
           } else {
-            const originalEvents = original.events;
-            const translatedEvents = translated.events.filter(
+            const originalEvents = orig_sub.events;
+            const translatedEvents = trans_sub.events.filter(
               (trans) => !trans.aAppend && trans.segs,
             );
             const resultEvents = [];
@@ -474,13 +596,13 @@
               resultEvents[j++] = orig;
             }
             // like provided subtitle
-            original.wsWinStyles.length = 1;
-            original.wpWinPositions.length = 1;
-            original.events = resultEvents;
+            orig_sub.wsWinStyles.length = 1;
+            orig_sub.wpWinPositions.length = 1;
+            orig_sub.events = resultEvents;
           }
 
           log.info('modify subtitle');
-          return JSON.stringify(original);
+          return JSON.stringify(orig_sub);
         });
       },
     },
@@ -499,6 +621,7 @@
       n: {
         ryqq_v2: {
           async player_radio() {
+            // controls
             const play_area = await $.wait('.mod_type');
             const play = await $.wait('.btn_play');
             const next_area = await $.wait('.mod_player');
@@ -507,6 +630,22 @@
               e.target === play_area && play.click();
               e.target === next_area && next.click();
             });
+
+            // disable document.title
+            Object.defineProperty(document, 'title', {
+              value: '',
+              writable: true,
+            });
+          },
+        },
+      },
+    },
+
+    'ieltscat.xdf.cn': {
+      practice: {
+        check: {
+          async listen() {
+            (await $.wait('audio')).volume = 1;
           },
         },
       },
